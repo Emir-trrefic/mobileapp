@@ -4,6 +4,9 @@
     "slug": "mobileapp",
     "version": "0.1.0",
     "orientation": "portrait",
+    "ios": {
+      "supportsTablet": false
+    },
     "userInterfaceStyle": "automatic",
     "plugins": [
       [

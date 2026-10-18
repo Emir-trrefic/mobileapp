@@ -11,6 +11,7 @@ import {
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
+import { useInsets } from '../lib/layout';
 import type { ActiveCheckin, Venue } from '../lib/types';
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export default function MapScreen({ active, onCheckedIn, onOpenVenue, onSignOut }: Props) {
+  const insets = useInsets();
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,12 +104,12 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onSignOut 
       </MapView>
 
       {active && (
-        <TouchableOpacity style={styles.banner} onPress={onOpenVenue}>
+        <TouchableOpacity style={[styles.banner, { top: insets.top + 4 }]} onPress={onOpenVenue}>
           <Text style={styles.bannerText}>📍 {active.venue_name} mekanındasın. Buradakileri gör →</Text>
         </TouchableOpacity>
       )}
 
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 16 + insets.bottom }]}>
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>Yakındaki mekanlar</Text>
           <TouchableOpacity onPress={onSignOut}>

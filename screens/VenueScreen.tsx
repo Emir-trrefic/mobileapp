@@ -3,6 +3,7 @@ import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, Vi
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { distanceMeters } from '../lib/geo';
+import { useInsets } from '../lib/layout';
 import type { ActiveCheckin, IncomingRequest, Person } from '../lib/types';
 
 type Props = {
@@ -16,6 +17,7 @@ const POLL_MS = 10_000;
 const LEAVE_FACTOR = 2; // yarıçapın bu kadar katı dışına çıkarsan otomatik check-out
 
 export default function VenueScreen({ active, userId, onLeft, onBack }: Props) {
+  const insets = useInsets();
   const [people, setPeople] = useState<Person[]>([]);
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,7 +120,7 @@ export default function VenueScreen({ active, userId, onLeft, onBack }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 4, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack}>
           <Text style={styles.back}>← Harita</Text>

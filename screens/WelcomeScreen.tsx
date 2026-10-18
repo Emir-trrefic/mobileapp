@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import AnimatedButton from '../components/AnimatedButton';
+import { useInsets } from '../lib/layout';
 import { colors } from '../lib/theme';
 
 const TITLE = 'Burada kimler var?';
@@ -12,7 +13,7 @@ const TAGLINES = [
 ];
 
 // Radar gibi genişleyip kaybolan halka.
-function Ring({ delay }: { delay: number }) {
+function Ring({ delay, size }: { delay: number; size: number }) {
   const p = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -34,6 +35,9 @@ function Ring({ delay }: { delay: number }) {
       style={[
         styles.ring,
         {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
           opacity: p.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
           transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1.5] }) }],
         },
@@ -78,6 +82,8 @@ type Props = { onStart: () => void; onLogin: () => void };
 
 export default function WelcomeScreen({ onStart, onLogin }: Props) {
   const { width, height } = useWindowDimensions();
+  const insets = useInsets();
+  const ringSize = Math.min(width * 0.64, 260);
   const [typed, setTyped] = useState('');
   const [tagIndex, setTagIndex] = useState(0);
   const cursor = useRef(new Animated.Value(1)).current;
@@ -141,16 +147,16 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
   }, [done, tag, buttons]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
       <Dot x={width * 0.12} y={height * 0.12} size={14} period={2400} />
       <Dot x={width * 0.8} y={height * 0.18} size={10} period={3000} />
       <Dot x={width * 0.25} y={height * 0.62} size={8} period={2700} />
       <Dot x={width * 0.86} y={height * 0.55} size={16} period={3300} />
 
-      <View style={styles.radar}>
-        <Ring delay={0} />
-        <Ring delay={1050} />
-        <Ring delay={2100} />
+      <View style={[styles.radar, { height: ringSize + 20 }]}>
+        <Ring delay={0} size={ringSize} />
+        <Ring delay={1050} size={ringSize} />
+        <Ring delay={2100} size={ringSize} />
         <Animated.Text
           style={[
             styles.pin,

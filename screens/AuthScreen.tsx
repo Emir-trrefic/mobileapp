@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
+import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
@@ -42,6 +43,7 @@ function translateError(message: string): string {
 }
 
 export default function AuthScreen({ initialMode, onBack }: Props) {
+  const insets = useInsets();
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,7 +120,11 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {/* Boş alana dokununca klavye kapanır */}
-        <Pressable style={styles.content} onPress={Keyboard.dismiss} accessible={false}>
+        <Pressable
+          style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+        >
           <Pressable onPress={onBack} hitSlop={12}>
             <Text style={styles.back}>← Geri</Text>
           </Pressable>

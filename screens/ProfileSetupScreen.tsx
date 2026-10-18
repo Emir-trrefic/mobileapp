@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
+import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 import { colors } from '../lib/theme';
 
@@ -25,6 +26,7 @@ function hueFor(text: string): number {
 }
 
 export default function ProfileSetupScreen({ userId, onDone }: Props) {
+  const insets = useInsets();
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [busy, setBusy] = useState(false);
@@ -75,7 +77,11 @@ export default function ProfileSetupScreen({ userId, onDone }: Props) {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.content} onPress={Keyboard.dismiss} accessible={false}>
+        <Pressable
+          style={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+        >
           <Animated.View
             style={{
               opacity: enter,
