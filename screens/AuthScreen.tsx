@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
 import { useInsets } from '../lib/layout';
@@ -125,8 +126,8 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
           onPress={Keyboard.dismiss}
           accessible={false}
         >
-          <Pressable onPress={onBack} hitSlop={12}>
-            <Text style={styles.back}>← Geri</Text>
+          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
           </Pressable>
 
           <Animated.View
@@ -227,7 +228,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   scroll: { flexGrow: 1 },
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 64, paddingBottom: 32 },
-  back: { color: colors.accentLight, fontSize: 16, marginBottom: 28 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+  },
   title: { color: colors.text, fontSize: 30, fontWeight: '800' },
   subtitle: { color: colors.muted, fontSize: 16, marginTop: 6, marginBottom: 14 },
   hello: { color: colors.accentLight, fontSize: 15, fontWeight: '600', marginBottom: 16, minHeight: 20 },

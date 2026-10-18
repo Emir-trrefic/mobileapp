@@ -1,55 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
-import { colors } from '../lib/theme';
+import { BRAND, colors, gradients } from '../lib/theme';
 
-const TITLE = 'Burada kimler var?';
-const TAGLINES = [
-  'Aynı mekanda, aynı anda.',
-  'Check-in yap, etrafındakileri gör.',
-  'Beğendiğine tanışma isteği gönder.',
-  'Mekandan çıkınca iz kalmaz.',
-];
+// ---------------------------------------------------------------- yardımcılar
 
-// Radar gibi genişleyip kaybolan halka.
-function Ring({ delay, size }: { delay: number; size: number }) {
-  const p = useRef(new Animated.Value(0)).current;
-
+function useRise(delay: number) {
+  const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const ref: { current: Animated.CompositeAnimation | null } = { current: null };
-    const t = setTimeout(() => {
-      ref.current = Animated.loop(
-        Animated.timing(p, { toValue: 1, duration: 3200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      );
-      ref.current.start();
-    }, delay);
-    return () => {
-      clearTimeout(t);
-      ref.current?.stop();
-    };
-  }, [delay, p]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.ring,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          opacity: p.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
-          transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1.5] }) }],
-        },
-      ]}
-    />
-  );
+    Animated.timing(v, { toValue: 1, duration: 650, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v, delay]);
+  return {
+    opacity: v,
+    transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }],
+  };
 }
 
-// Arka planda yavaşça süzülen nokta.
-function Dot({ x, y, size, period }: { x: number; y: number; size: number; period: number }) {
+function useFloat(period: number) {
   const v = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -60,151 +30,351 @@ function Dot({ x, y, size, period }: { x: number; y: number; size: number; perio
     loop.start();
     return () => loop.stop();
   }, [v, period]);
+  return v;
+}
+
+// ---------------------------------------------------------------- hero parçaları
+
+// Merkezden dışa yayılan radar halkası.
+function Pulse({ size, delay }: { size: number; delay: number }) {
+  const p = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    const t = setTimeout(() => {
+      loop = Animated.loop(
+        Animated.timing(p, { toValue: 1, duration: 3600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      );
+      loop.start();
+    }, delay);
+    return () => {
+      clearTimeout(t);
+      loop?.stop();
+    };
+  }, [p, delay]);
 
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
         position: 'absolute',
-        left: x,
-        top: y,
+        left: -size / 2,
+        top: -size / 2,
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: colors.accentLight,
-        opacity: 0.35,
-        transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -18] }) }],
+        borderWidth: 1.5,
+        borderColor: colors.accentLight,
+        opacity: p.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+        transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1.15] }) }],
       }}
     />
   );
 }
+
+// Aynı mekandaki, görünür kişi.
+function Bubble({
+  name,
+  meta,
+  color,
+  x,
+  y,
+  delay,
+  period,
+}: {
+  name: string;
+  meta: string;
+  color: string;
+  x: number;
+  y: number;
+  delay: number;
+  period: number;
+}) {
+  const pop = useRef(new Animated.Value(0)).current;
+  const float = useFloat(period);
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 9, bounciness: 14 }),
+    ]).start();
+  }, [pop, delay]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.bubbleWrap,
+        {
+          left: x - 40,
+          top: y - 26,
+          opacity: pop,
+          transform: [
+            { scale: pop },
+            { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) },
+          ],
+        },
+      ]}
+    >
+      <View style={[styles.bubble, { backgroundColor: color }]}>
+        <Text style={styles.bubbleText}>{name[0]}</Text>
+      </View>
+      <View style={styles.bubbleChip}>
+        <Text style={styles.bubbleChipText}>
+          {name} · {meta}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// Mekanın dışındaki, görünmeyen kişi (soluk nokta).
+function Ghost({ x, y, size, delay }: { x: number; y: number; size: number; delay: number }) {
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fade, { toValue: 1, duration: 800, delay, useNativeDriver: true }).start();
+  }, [fade, delay]);
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x - size / 2,
+        top: y - size / 2,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: 'rgba(154,155,190,0.28)',
+        opacity: fade,
+      }}
+    />
+  );
+}
+
+// Arka plandaki soyut sokak ızgarası.
+function Streets({ width, height }: { width: number; height: number }) {
+  const drift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(drift, { toValue: 1, duration: 16000, easing: Easing.linear, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [drift]);
+
+  const W = width * 1.7;
+  const H = height * 1.7;
+  const rows = Math.ceil(H / 58);
+  const cols = Math.ceil(W / 70);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: -width * 0.35,
+        top: -height * 0.35,
+        width: W,
+        height: H,
+        transform: [{ rotate: '-18deg' }, { translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -70] }) }],
+      }}
+    >
+      {Array.from({ length: rows }).map((_, i) => (
+        <View key={`r${i}`} style={[styles.line, { top: i * 58, left: 0, right: 0, height: 1 }]} />
+      ))}
+      {Array.from({ length: cols + 2 }).map((_, i) => (
+        <View key={`c${i}`} style={[styles.line, { left: i * 70, top: 0, bottom: 0, width: 1 }]} />
+      ))}
+    </Animated.View>
+  );
+}
+
+// ---------------------------------------------------------------- ekran
 
 type Props = { onStart: () => void; onLogin: () => void };
 
 export default function WelcomeScreen({ onStart, onLogin }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useInsets();
-  const ringSize = Math.min(width * 0.64, 260);
-  const [typed, setTyped] = useState('');
-  const [tagIndex, setTagIndex] = useState(0);
-  const cursor = useRef(new Animated.Value(1)).current;
-  const pin = useRef(new Animated.Value(0)).current;
-  const tag = useRef(new Animated.Value(0)).current;
-  const buttons = useRef(new Animated.Value(0)).current;
-  const done = typed.length >= TITLE.length;
 
-  // Başlığı harf harf yaz.
-  useEffect(() => {
-    let i = 0;
-    const t = setInterval(() => {
-      i += 1;
-      setTyped(TITLE.slice(0, i));
-      if (i >= TITLE.length) clearInterval(t);
-    }, 70);
-    return () => clearInterval(t);
-  }, []);
+  const heroH = Math.min(height * 0.47, 440);
+  const cx = width / 2;
+  const cy = heroH / 2;
+  const R = Math.min(width * 0.33, 140);
 
-  // İmleç yanıp söner, pin hafifçe zıplar.
-  useEffect(() => {
-    const blink = Animated.loop(
-      Animated.sequence([
-        Animated.timing(cursor, { toValue: 0, duration: 450, useNativeDriver: true }),
-        Animated.timing(cursor, { toValue: 1, duration: 450, useNativeDriver: true }),
-      ]),
-    );
-    const bob = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pin, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pin, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]),
-    );
-    blink.start();
-    bob.start();
-    return () => {
-      blink.stop();
-      bob.stop();
-    };
-  }, [cursor, pin]);
+  const brand = useRise(100);
+  const title = useRise(1000);
+  const sub = useRise(1200);
+  const cta = useRise(1400);
 
-  // Yazı bitince butonlar yukarı kayarak gelir, alt başlıklar sırayla değişir.
-  useEffect(() => {
-    if (!done) return;
-    Animated.timing(buttons, { toValue: 1, duration: 600, delay: 200, useNativeDriver: true }).start();
-
-    let mounted = true;
-    const show = () => Animated.timing(tag, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    show();
-    const t = setInterval(() => {
-      Animated.timing(tag, { toValue: 0, duration: 300, useNativeDriver: true }).start(({ finished }) => {
-        if (!mounted || !finished) return;
-        setTagIndex((i) => (i + 1) % TAGLINES.length);
-        show();
-      });
-    }, 2800);
-    return () => {
-      mounted = false;
-      clearInterval(t);
-    };
-  }, [done, tag, buttons]);
+  const centerPulse = useFloat(1200);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
-      <Dot x={width * 0.12} y={height * 0.12} size={14} period={2400} />
-      <Dot x={width * 0.8} y={height * 0.18} size={10} period={3000} />
-      <Dot x={width * 0.25} y={height * 0.62} size={8} period={2700} />
-      <Dot x={width * 0.86} y={height * 0.55} size={16} period={3300} />
+    <View style={styles.root}>
+      <LinearGradient colors={gradients.hero} style={StyleSheet.absoluteFill} />
 
-      <View style={[styles.radar, { height: ringSize + 20 }]}>
-        <Ring delay={0} size={ringSize} />
-        <Ring delay={1050} size={ringSize} />
-        <Ring delay={2100} size={ringSize} />
-        <Animated.Text
+      {/* Üst: marka */}
+      <Animated.View style={[styles.brandRow, { top: insets.top + 10 }, brand]}>
+        <LinearGradient
+          colors={gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.brandDot}
+        />
+        <Text style={styles.brandText}>{BRAND}</Text>
+      </Animated.View>
+
+      {/* Hero: radar + insanlar */}
+      <View style={{ position: 'absolute', top: insets.top + 36, left: 0, right: 0, height: heroH }}>
+        <Streets width={width} height={heroH} />
+
+        {/* Yumuşak parıltı */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: cx - R * 1.5,
+            top: cy - R * 1.5,
+            width: R * 3,
+            height: R * 3,
+            borderRadius: R * 1.5,
+            backgroundColor: 'rgba(124,92,255,0.07)',
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: cx - R * 1.15,
+            top: cy - R * 1.15,
+            width: R * 2.3,
+            height: R * 2.3,
+            borderRadius: R * 1.15,
+            backgroundColor: 'rgba(124,92,255,0.08)',
+          }}
+        />
+
+        {/* Mekan sınırı */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: cx - R,
+            top: cy - R,
+            width: R * 2,
+            height: R * 2,
+            borderRadius: R,
+            borderWidth: 1.5,
+            borderColor: 'rgba(161,139,255,0.55)',
+            borderStyle: 'dashed',
+          }}
+        />
+
+        <View style={{ position: 'absolute', left: cx, top: cy }}>
+          <Pulse size={R * 2} delay={0} />
+          <Pulse size={R * 2} delay={1200} />
+          <Pulse size={R * 2} delay={2400} />
+        </View>
+
+        {/* Dışarıdaki, görünmeyen kişiler */}
+        <Ghost x={cx - R * 1.32} y={cy - R * 0.25} size={12} delay={900} />
+        <Ghost x={cx + R * 1.36} y={cy + R * 0.35} size={16} delay={1000} />
+        <Ghost x={cx + R * 0.15} y={cy - R * 1.3} size={10} delay={1100} />
+        <Ghost x={cx - R * 0.35} y={cy + R * 1.3} size={14} delay={1200} />
+
+        {/* Mekandaki, görünen kişiler */}
+        <Bubble name="Elif" meta="12 m" color="#FF5C93" x={cx - R * 0.62} y={cy - R * 0.5} delay={500} period={2200} />
+        <Bubble name="Can" meta="8 m" color="#5C8CFF" x={cx + R * 0.66} y={cy - R * 0.32} delay={700} period={2600} />
+        <Bubble name="Zeynep" meta="20 m" color="#FFB155" x={cx - R * 0.5} y={cy + R * 0.62} delay={900} period={2400} />
+        <Bubble name="Mert" meta="15 m" color="#34D399" x={cx + R * 0.46} y={cy + R * 0.66} delay={1100} period={2800} />
+
+        {/* Merkez: sen */}
+        <Animated.View
           style={[
-            styles.pin,
-            { transform: [{ translateY: pin.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }] },
+            styles.me,
+            {
+              left: cx - 15,
+              top: cy - 15,
+              transform: [{ scale: centerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }],
+            },
           ]}
         >
-          📍
+          <LinearGradient
+            colors={gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.meDot}
+          />
+        </Animated.View>
+        <Text style={[styles.meLabel, { left: cx - 20, top: cy + 22 }]}>Sen</Text>
+
+        {/* Alt kenarda arka planla birleşme */}
+        <LinearGradient
+          colors={['rgba(21,15,56,0)', '#150F38']}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 70 }}
+          pointerEvents="none"
+        />
+      </View>
+
+      {/* Alt: başlık + butonlar */}
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
+        <Animated.Text style={[styles.title, title]}>Aynı mekandaki{'\n'}insanlarla tanış.</Animated.Text>
+        <Animated.Text style={[styles.sub, sub]}>
+          Check-in yap, sadece o an orada olanları gör. Mekandan çıkınca kimse seni görmez.
         </Animated.Text>
-      </View>
 
-      <View style={styles.textBlock}>
-        <Text style={styles.title}>
-          {typed}
-          <Animated.Text style={{ opacity: cursor, color: colors.accentLight }}>|</Animated.Text>
-        </Text>
-        <Animated.Text style={[styles.tagline, { opacity: tag }]}>{done ? TAGLINES[tagIndex] : ' '}</Animated.Text>
+        <Animated.View style={[{ marginTop: 22 }, cta]}>
+          <AnimatedButton title="Başla" icon="arrow-forward" iconRight onPress={onStart} />
+          <Pressable onPress={onLogin} hitSlop={10} style={styles.loginLink}>
+            <Text style={styles.loginText}>
+              Zaten hesabın var mı? <Text style={styles.loginStrong}>Giriş yap</Text>
+            </Text>
+          </Pressable>
+          <Text style={styles.legal}>18 yaş ve üzeri için</Text>
+        </Animated.View>
       </View>
-
-      <Animated.View
-        style={[
-          styles.buttons,
-          {
-            opacity: buttons,
-            transform: [{ translateY: buttons.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
-          },
-        ]}
-      >
-        <AnimatedButton title="Hemen başla" onPress={onStart} />
-        <AnimatedButton title="Zaten hesabım var" variant="ghost" onPress={onLogin} style={{ marginTop: 12 }} />
-      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24, justifyContent: 'center' },
-  radar: { height: 280, alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    borderWidth: 2,
-    borderColor: colors.accentLight,
+  root: { flex: 1, backgroundColor: colors.bg },
+  line: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.045)' },
+  brandRow: { position: 'absolute', left: 24, flexDirection: 'row', alignItems: 'center', zIndex: 5 },
+  brandDot: { width: 14, height: 14, borderRadius: 7, marginRight: 8 },
+  brandText: { color: colors.text, fontSize: 20, fontWeight: '800', letterSpacing: 0.4 },
+  bubbleWrap: { position: 'absolute', width: 80, alignItems: 'center' },
+  bubble: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
-  pin: { fontSize: 54 },
-  textBlock: { alignItems: 'center', marginTop: 8, minHeight: 90 },
-  title: { color: colors.text, fontSize: 32, fontWeight: '800', textAlign: 'center' },
-  tagline: { color: colors.muted, fontSize: 16, marginTop: 10, textAlign: 'center' },
-  buttons: { marginTop: 28 },
+  bubbleText: { color: '#fff', fontSize: 19, fontWeight: '800' },
+  bubbleChip: {
+    marginTop: 5,
+    backgroundColor: 'rgba(11,11,22,0.78)',
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+  },
+  bubbleChipText: { color: colors.text, fontSize: 10.5, fontWeight: '600' },
+  me: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  meDot: { width: 20, height: 20, borderRadius: 10 },
+  meLabel: { position: 'absolute', width: 40, textAlign: 'center', color: colors.muted, fontSize: 11, fontWeight: '700' },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24 },
+  title: { color: colors.text, fontSize: 34, lineHeight: 40, fontWeight: '800' },
+  sub: { color: colors.muted, fontSize: 16, lineHeight: 23, marginTop: 12 },
+  loginLink: { alignSelf: 'center', marginTop: 16 },
+  loginText: { color: colors.muted, fontSize: 15 },
+  loginStrong: { color: colors.accentLight, fontWeight: '700' },
+  legal: { color: 'rgba(154,155,190,0.6)', fontSize: 12, textAlign: 'center', marginTop: 12 },
 });
