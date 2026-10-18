@@ -20,12 +20,17 @@ Codespace içinde terminalde:
 
 ```bash
 npm install
-npx expo install expo-linear-gradient expo-image-picker
+npx expo install expo-linear-gradient expo-image-picker expo-haptics
 npx expo install --fix
 npx expo start --tunnel
 ```
 
 Çıkan QR kodu telefondaki **Expo Go** uygulamasıyla okut.
+
+## Tasarım
+- Renk paleti `lib/theme.ts` içinde: koyu tema indigo tonlu antrasit, açık tema lavanta tonlu beyaz; marka gradyanı mor → mercan pembe.
+- Açık/koyu tema telefonun ayarını otomatik takip eder (uygulamada düğme yok).
+- Ekran geçişleri, kayan sekme çubuğu, kart girişleri ve titreşim geri bildirimi `components/Transition.tsx`, `components/TabBar.tsx`, `lib/haptics.ts` içinde.
 
 ## Akış
 Karşılama → kayıt → adım adım profil (isim, yaş, fotoğraf, ilgi alanları, tanıtım) → ana sayfa **Harita** (mekan kartları, canlı kişi sayısı) → mekanda "Check-in" (sunucu mesafeyi doğrular) → **Burada** sekmesi (mekandaki kişiler, tam profil) → "Tanış" isteği → karşı taraf kabul eder. Üçüncü sekme **Profil**: kendi profilin ve düzenleme.

@@ -3,10 +3,13 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import AnimatedButton from './components/AnimatedButton';
+import Backdrop from './components/Backdrop';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
+import { FadeIn, Pane } from './components/Transition';
 import { supabase, supabaseConfigured } from './lib/supabase';
-import { colors } from './lib/theme';
+import { useColors, useStyles } from './lib/theme';
+import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS } from './lib/types';
 import type { ActiveCheckin, IncomingRequest, Profile } from './lib/types';
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -19,6 +22,9 @@ import ProfileScreen from './screens/ProfileScreen';
 type Entry = 'welcome' | 'auth';
 
 export default function App() {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
+
   const [session, setSession] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -95,12 +101,15 @@ export default function App() {
     [incomingAll, active],
   );
 
+  // Durum çubuğu: koyu temada açık yazı, açık temada koyu yazı. Profil sekmesinde üstte fotoğraf olduğu için açık yazı.
+  const barStyle = c.scheme === 'dark' || (session && tab === 'profile') ? 'light' : 'dark';
+
   // ------------------------------------------------------------ ekranlar
 
   if (!supabaseConfigured) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
+        <StatusBar style={barStyle} />
         <Text style={styles.msg}>
           Supabase ayarı eksik. Proje klasöründe .env dosyası oluşturup EXPO_PUBLIC_SUPABASE_URL ve
           EXPO_PUBLIC_SUPABASE_ANON_KEY değerlerini gir (.env.example dosyasına bak), sonra uygulamayı yeniden başlat.
@@ -112,16 +121,17 @@ export default function App() {
   if (booting || (session && !profileLoaded)) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color={colors.accentLight} />
+        <StatusBar style={barStyle} />
+        <Backdrop />
+        <ActivityIndicator size="large" color={c.accent} />
       </View>
     );
   }
 
   if (!session) {
     return (
-      <>
-        <StatusBar style="light" />
+      <View style={styles.root}>
+        <StatusBar style={barStyle} />
         {entry === 'welcome' ? (
           <WelcomeScreen
             onStart={() => {
@@ -134,16 +144,19 @@ export default function App() {
             }}
           />
         ) : (
-          <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
+          <FadeIn key="auth" x={36} y={0} duration={360} style={styles.fill}>
+            <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
+          </FadeIn>
         )}
-      </>
+      </View>
     );
   }
 
   if (loadError) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
+        <StatusBar style={barStyle} />
+        <Backdrop />
         <Text style={styles.errTitle}>Profil okunamadı</Text>
         <Text style={styles.msg}>
           {loadError}
@@ -163,24 +176,26 @@ export default function App() {
   // Profil yok ya da eski (yaş/ilgi alanı eksik) → adım adım kurulum.
   if (!profile || !profile.birth_year) {
     return (
-      <>
-        <StatusBar style="light" />
-        <OnboardingScreen
-          userId={session.user.id}
-          initial={profile}
-          onDone={(p) => setProfile(p)}
-          onSignOut={() => supabase.auth.signOut()}
-        />
-      </>
+      <View style={styles.root}>
+        <StatusBar style={barStyle} />
+        <FadeIn key="onboarding" x={36} y={0} duration={360} style={styles.fill}>
+          <OnboardingScreen
+            userId={session.user.id}
+            initial={profile}
+            onDone={(p) => setProfile(p)}
+            onSignOut={() => supabase.auth.signOut()}
+          />
+        </FadeIn>
+      </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style={barStyle} />
 
       {/* Harita hep açık kalır (konum ve harita yeniden yüklenmesin diye sadece gizlenir) */}
-      <View style={[styles.fill, tab !== 'map' && styles.hidden]}>
+      <Pane visible={tab === 'map'} keepMounted>
         <MapScreen
           active={active}
           onCheckedIn={async () => {
@@ -189,41 +204,37 @@ export default function App() {
           }}
           onOpenVenue={() => setTab('venue')}
         />
-      </View>
+      </Pane>
 
-      {tab === 'venue' && (
-        <View style={styles.fill}>
-          <VenueScreen
-            active={active}
-            userId={session.user.id}
-            myInterests={profile.interests}
-            incoming={incoming}
-            onIncomingChanged={loadIncoming}
-            onGoMap={() => setTab('map')}
-            onLeft={() => {
-              setActive(null);
-              setTab('map');
-            }}
-          />
-        </View>
-      )}
+      <Pane visible={tab === 'venue'}>
+        <VenueScreen
+          active={active}
+          userId={session.user.id}
+          myInterests={profile.interests}
+          incoming={incoming}
+          onIncomingChanged={loadIncoming}
+          onGoMap={() => setTab('map')}
+          onLeft={() => {
+            setActive(null);
+            setTab('map');
+          }}
+        />
+      </Pane>
 
-      {tab === 'profile' && (
-        <View style={styles.fill}>
-          <ProfileScreen profile={profile} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
-        </View>
-      )}
+      <Pane visible={tab === 'profile'}>
+        <ProfileScreen profile={profile} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
+      </Pane>
 
       <TabBar tab={tab} onChange={setTab} badge={incoming.length} live={Boolean(active)} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  fill: { ...StyleSheet.absoluteFillObject },
-  hidden: { display: 'none' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, backgroundColor: colors.bg },
-  msg: { color: colors.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  errTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    fill: { ...StyleSheet.absoluteFillObject },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, backgroundColor: c.bg },
+    msg: { color: c.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
+    errTitle: { color: c.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
+  });

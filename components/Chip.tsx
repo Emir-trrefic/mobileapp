@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { tap } from '../lib/haptics';
 import { emojiFor } from '../lib/profile';
-import { colors } from '../lib/theme';
+import { useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 
 type Props = {
   label: string;
@@ -11,33 +14,69 @@ type Props = {
 };
 
 export default function Chip({ label, selected, highlight, small, onPress }: Props) {
+  const styles = useStyles(makeStyles);
   const emoji = emojiFor(label);
+  const scale = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+
+  // Seçilince küçük bir "pop" yapar.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.1, duration: 90, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 14 }),
+    ]).start();
+  }, [selected, scale]);
+
   const body = (
-    <View style={[styles.chip, small && styles.small, selected && styles.selected, highlight && styles.highlight]}>
+    <Animated.View
+      style={[
+        styles.chip,
+        small && styles.small,
+        selected && styles.selected,
+        highlight && styles.highlight,
+        { transform: [{ scale }] },
+      ]}
+    >
       <Text style={[styles.text, small && styles.textSmall, (selected || highlight) && styles.textOn]}>
         {emoji ? `${emoji} ` : ''}
         {label}
       </Text>
-    </View>
+    </Animated.View>
   );
-  return onPress ? <Pressable onPress={onPress}>{body}</Pressable> : body;
+
+  if (!onPress) return body;
+  return (
+    <Pressable
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+    >
+      {body}
+    </Pressable>
+  );
 }
 
-const styles = StyleSheet.create({
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  small: { paddingVertical: 5, paddingHorizontal: 10, marginRight: 6, marginBottom: 6 },
-  selected: { backgroundColor: 'rgba(124,92,255,0.22)', borderColor: colors.accent },
-  highlight: { backgroundColor: 'rgba(255,92,147,0.18)', borderColor: colors.pink },
-  text: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  textSmall: { fontSize: 12 },
-  textOn: { color: colors.text },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    chip: {
+      borderRadius: 999,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    small: { paddingVertical: 5, paddingHorizontal: 10, marginRight: 6, marginBottom: 6 },
+    selected: { backgroundColor: c.accentSoft, borderColor: c.accent },
+    highlight: { backgroundColor: c.pinkSoft, borderColor: c.pink },
+    text: { color: c.muted, fontSize: 14, fontWeight: '600' },
+    textSmall: { fontSize: 12 },
+    textOn: { color: c.text },
+  });

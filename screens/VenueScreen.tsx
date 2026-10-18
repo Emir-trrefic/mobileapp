@@ -12,15 +12,20 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedButton from '../components/AnimatedButton';
 import Avatar from '../components/Avatar';
+import Backdrop from '../components/Backdrop';
 import PersonCard from '../components/PersonCard';
 import PersonSheet from '../components/PersonSheet';
+import { FadeIn } from '../components/Transition';
+import { success, tap, warning } from '../lib/haptics';
 import { distanceMeters } from '../lib/geo';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useColors, useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, IncomingRequest, Person } from '../lib/types';
 import { fmtRemaining } from '../lib/venue';
 
@@ -40,6 +45,8 @@ const PAD = 16;
 const GAP = 12;
 
 export default function VenueScreen({ active, userId, myInterests, incoming, onIncomingChanged, onGoMap, onLeft }: Props) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const insets = useInsets();
   const space = useTabBarSpace();
   const { width } = useWindowDimensions();
@@ -108,8 +115,13 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   async function sendRequest(p: Person) {
     if (!active) return;
     const { error } = await supabase.rpc('send_meet_request', { p_to: p.user_id, p_venue: active.venue_id });
-    if (error) Alert.alert('İstek gönderilemedi', error.message);
-    else refresh();
+    if (error) {
+      warning();
+      Alert.alert('İstek gönderilemedi', error.message);
+    } else {
+      success();
+      refresh();
+    }
   }
 
   async function respond(r: IncomingRequest, accept: boolean) {
@@ -118,7 +130,12 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
       Alert.alert('Hata', error.message);
       return;
     }
-    if (accept) Alert.alert('Eşleştiniz! 🎉', `${r.display_name} ile tanışabilirsiniz. Mekanda etrafına bak 🙂`);
+    if (accept) {
+      success();
+      Alert.alert('Eşleştiniz! 🎉', `${r.display_name} ile tanışabilirsiniz. Mekanda etrafına bak 🙂`);
+    } else {
+      tap();
+    }
     onIncomingChanged();
     refresh();
   }
@@ -160,14 +177,23 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   if (!active) {
     return (
       <View style={[styles.empty, { paddingTop: insets.top }]}>
-        <View style={styles.emptyIcon}>
-          <Ionicons name="people" size={42} color="#fff" />
-        </View>
-        <Text style={styles.emptyTitle}>Henüz bir mekanda değilsin</Text>
-        <Text style={styles.emptyText}>
-          Haritadan yakınındaki bir mekana check-in yap. O an orada olan insanları burada göreceksin.
-        </Text>
-        <AnimatedButton title="Haritaya git" icon="map" onPress={onGoMap} style={{ marginTop: 24, alignSelf: 'stretch' }} />
+        <Backdrop />
+        <FadeIn scale={0.85} y={20} duration={520}>
+          <View style={styles.emptyIconWrap}>
+            <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emptyIcon}>
+              <Ionicons name="people" size={42} color="#fff" />
+            </LinearGradient>
+          </View>
+        </FadeIn>
+        <FadeIn delay={120}>
+          <Text style={styles.emptyTitle}>Henüz bir mekanda değilsin</Text>
+          <Text style={styles.emptyText}>
+            Haritadan yakınındaki bir mekana check-in yap. O an orada olan insanları burada göreceksin.
+          </Text>
+        </FadeIn>
+        <FadeIn delay={240} style={{ alignSelf: 'stretch' }}>
+          <AnimatedButton title="Haritaya git" icon="map" onPress={onGoMap} style={{ marginTop: 24 }} />
+        </FadeIn>
       </View>
     );
   }
@@ -177,35 +203,37 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
 
   const header = (
     <View>
-      <View style={styles.headerTop}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>Canlı · {remaining} kaldı</Text>
+      <FadeIn y={-8}>
+        <View style={styles.headerTop}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.livePill}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Canlı · {remaining} kaldı</Text>
+            </View>
+            <Text style={styles.title} numberOfLines={2}>
+              {active.venue_name}
+            </Text>
+            <Text style={styles.subtitle}>
+              {people.length > 0 ? `Şu an ${people.length} kişi burada` : 'Şu an burada başka kimse yok'}
+            </Text>
           </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {active.venue_name}
-          </Text>
-          <Text style={styles.subtitle}>
-            {people.length > 0 ? `Şu an ${people.length} kişi burada` : 'Şu an burada başka kimse yok'}
-          </Text>
+          <Pressable
+            style={styles.leaveBtn}
+            onPress={() =>
+              Alert.alert('Check-out yapılsın mı?', 'Mekandan ayrılırsan artık kimse seni göremez.', [
+                { text: 'Vazgeç', style: 'cancel' },
+                { text: 'Check-out', style: 'destructive', onPress: () => checkOut(false) },
+              ])
+            }
+          >
+            <Ionicons name="log-out-outline" size={18} color={c.danger} />
+            <Text style={styles.leaveText}>Ayrıl</Text>
+          </Pressable>
         </View>
-        <Pressable
-          style={styles.leaveBtn}
-          onPress={() =>
-            Alert.alert('Check-out yapılsın mı?', 'Mekandan ayrılırsan artık kimse seni göremez.', [
-              { text: 'Vazgeç', style: 'cancel' },
-              { text: 'Check-out', style: 'destructive', onPress: () => checkOut(false) },
-            ])
-          }
-        >
-          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-          <Text style={styles.leaveText}>Ayrıl</Text>
-        </Pressable>
-      </View>
+      </FadeIn>
 
       {incoming.length > 0 ? (
-        <View style={styles.requests}>
+        <FadeIn delay={100} style={styles.requests}>
           <Text style={styles.sectionTitle}>Sana gelen istekler · {incoming.length}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: PAD }}>
             {incoming.map((r) => (
@@ -220,16 +248,16 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
                     {r.interests.slice(0, 2).join(' · ') || 'Seninle tanışmak istiyor'}
                   </Text>
                 </View>
-                <Pressable style={[styles.circle, { backgroundColor: 'rgba(52,211,153,0.2)' }]} onPress={() => respond(r, true)}>
-                  <Ionicons name="checkmark" size={22} color={colors.success} />
+                <Pressable style={[styles.circle, { backgroundColor: c.successSoft }]} onPress={() => respond(r, true)}>
+                  <Ionicons name="checkmark" size={22} color={c.success} />
                 </Pressable>
-                <Pressable style={[styles.circle, { backgroundColor: 'rgba(248,113,113,0.16)' }]} onPress={() => respond(r, false)}>
-                  <Ionicons name="close" size={22} color={colors.danger} />
+                <Pressable style={[styles.circle, { backgroundColor: c.dangerSoft }]} onPress={() => respond(r, false)}>
+                  <Ionicons name="close" size={22} color={c.danger} />
                 </Pressable>
               </View>
             ))}
           </ScrollView>
-        </View>
+        </FadeIn>
       ) : null}
 
       {people.length > 0 ? <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Şu an burada</Text> : null}
@@ -238,32 +266,37 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
 
   return (
     <View style={styles.root}>
+      <Backdrop intensity={0.6} />
       <FlatList
         data={people}
         numColumns={2}
         keyExtractor={(p) => p.user_id}
         columnWrapperStyle={{ gap: GAP }}
         ListHeaderComponent={header}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentLight} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} />}
         contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: insets.top + 12, paddingBottom: space + 16 }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           loaded ? (
-            <View style={styles.waiting}>
-              <Ionicons name="radio-outline" size={44} color={colors.accentLight} />
+            <FadeIn delay={150} style={styles.waiting}>
+              <Ionicons name="radio-outline" size={44} color={c.accentLight} />
               <Text style={styles.waitingTitle}>Henüz kimse yok</Text>
               <Text style={styles.waitingText}>
                 Biri bu mekanda check-in yaptığında burada görünecek. Yenilemek için aşağı çek.
               </Text>
-            </View>
+            </FadeIn>
           ) : null
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <PersonCard
             person={item}
             width={cardW}
+            index={index}
             shared={item.interests.filter((i) => myInterests.includes(i)).length}
-            onPress={() => setSelectedId(item.user_id)}
+            onPress={() => {
+              tap();
+              setSelectedId(item.user_id);
+            }}
             onMeet={() => sendRequest(item)}
           />
         )}
@@ -280,74 +313,79 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  empty: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 28 },
-  emptyIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 22,
-  },
-  emptyTitle: { color: colors.text, fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  emptyText: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    empty: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', padding: 28 },
+    emptyIconWrap: {
+      shadowColor: c.accent,
+      shadowOpacity: 0.45,
+      shadowRadius: 22,
+      shadowOffset: { width: 0, height: 10 },
+      marginBottom: 22,
+      alignSelf: 'center',
+    },
+    emptyIcon: { width: 92, height: 92, borderRadius: 46, alignItems: 'center', justifyContent: 'center' },
+    emptyTitle: { color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center', letterSpacing: -0.4 },
+    emptyText: { color: c.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
 
-  headerTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
-  livePill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(52,211,153,0.14)',
-    borderRadius: 14,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success, marginRight: 7 },
-  liveText: { color: colors.success, fontSize: 12, fontWeight: '700' },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800' },
-  subtitle: { color: colors.muted, fontSize: 15, marginTop: 4 },
-  leaveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(248,113,113,0.12)',
-    borderRadius: 14,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginLeft: 12,
-  },
-  leaveText: { color: colors.danger, fontWeight: '700', marginLeft: 5 },
+    headerTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+    livePill: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.successSoft,
+      borderRadius: 14,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      marginBottom: 10,
+    },
+    liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.success, marginRight: 7 },
+    liveText: { color: c.success, fontSize: 12, fontWeight: '700' },
+    title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
+    subtitle: { color: c.muted, fontSize: 15, marginTop: 4 },
+    leaveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.dangerSoft,
+      borderRadius: 14,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      marginLeft: 12,
+    },
+    leaveText: { color: c.danger, fontWeight: '700', marginLeft: 5 },
 
-  sectionTitle: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  requests: { marginBottom: 14 },
-  requestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,92,147,0.45)',
-    padding: 12,
-    marginRight: 10,
-    width: 300,
-  },
-  requestText: { flex: 1, marginHorizontal: 10 },
-  requestName: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  requestAge: { fontWeight: '400' },
-  requestSub: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  circle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+    sectionTitle: {
+      color: c.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+      marginBottom: 12,
+    },
+    requests: { marginBottom: 14 },
+    requestCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.card,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: c.pink,
+      padding: 12,
+      marginRight: 10,
+      width: 300,
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity * 0.5,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+    },
+    requestText: { flex: 1, marginHorizontal: 10 },
+    requestName: { color: c.text, fontSize: 16, fontWeight: '800' },
+    requestAge: { fontWeight: '400' },
+    requestSub: { color: c.muted, fontSize: 12, marginTop: 3 },
+    circle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
 
-  waiting: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 20 },
-  waitingTitle: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 14 },
-  waitingText: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 6 },
-});
+    waiting: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 20 },
+    waitingTitle: { color: c.text, fontSize: 18, fontWeight: '800', marginTop: 14 },
+    waitingText: { color: c.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 6 },
+  });

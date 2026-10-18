@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Linking,
   NativeScrollEvent,
@@ -19,9 +20,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
 import AnimatedButton from '../components/AnimatedButton';
+import Backdrop from '../components/Backdrop';
+import { FadeIn } from '../components/Transition';
+import { success, tap } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { supabase } from '../lib/supabase';
-import { BRAND, colors, gradients } from '../lib/theme';
+import { BRAND, useColors, useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, Venue } from '../lib/types';
 import { categoryEmoji, fmtDistance } from '../lib/venue';
 
@@ -45,13 +50,15 @@ function VenueMarker({
   mine: boolean;
   onPress: () => void;
 }) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const [track, setTrack] = useState(true);
 
   useEffect(() => {
     setTrack(true);
-    const t = setTimeout(() => setTrack(false), 800);
+    const t = setTimeout(() => setTrack(false), 900);
     return () => clearTimeout(t);
-  }, [selected, mine, venue.active_count]);
+  }, [selected, mine, venue.active_count, c.scheme]);
 
   return (
     <Marker
@@ -76,7 +83,93 @@ function VenueMarker({
   );
 }
 
+// Alttaki yana kayan mekan kartı.
+function VenueCard({
+  venue,
+  width,
+  selected,
+  here,
+  busy,
+  onSelect,
+  onCheckIn,
+  onOpenVenue,
+}: {
+  venue: Venue;
+  width: number;
+  selected: boolean;
+  here: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onCheckIn: () => void;
+  onOpenVenue: () => void;
+}) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
+  const inRange = venue.distance_m <= venue.radius_m;
+  const lift = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const press = useRef(new Animated.Value(1)).current;
+
+  // Seçili kart hafifçe büyür ve çerçevesi parlar.
+  useEffect(() => {
+    Animated.spring(lift, { toValue: selected ? 1 : 0, useNativeDriver: true, speed: 14, bounciness: 8 }).start();
+  }, [selected, lift]);
+
+  const to = (v: number) => Animated.spring(press, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        marginRight: GAP,
+        opacity: lift.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }),
+        transform: [
+          { scale: Animated.multiply(lift.interpolate({ inputRange: [0, 1], outputRange: [0.965, 1] }), press) },
+        ],
+      }}
+    >
+      <Pressable onPress={onSelect} onPressIn={() => to(0.98)} onPressOut={() => to(1)} style={[styles.card, selected && styles.cardSelected]}>
+        <View style={styles.cardTop}>
+          <View style={styles.emojiTile}>
+            <Text style={styles.emoji}>{categoryEmoji(venue.category)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {venue.name}
+            </Text>
+            <Text style={styles.cardMeta}>
+              {fmtDistance(venue.distance_m)} · {inRange ? 'buradasın' : 'uzakta'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.liveRow}>
+          <View style={[styles.dot, { backgroundColor: venue.active_count > 0 ? c.success : c.border }]} />
+          <Text style={styles.liveCount}>
+            {venue.active_count > 0 ? `${venue.active_count} kişi şu an burada` : 'Şu an kimse yok'}
+          </Text>
+        </View>
+
+        {here ? (
+          <AnimatedButton title="Buradasın · Kişileri gör" icon="people" variant="soft" onPress={onOpenVenue} compact />
+        ) : inRange ? (
+          <AnimatedButton title="Check-in yap" icon="location" onPress={onCheckIn} loading={busy} compact />
+        ) : (
+          <AnimatedButton
+            title={`${Math.max(1, Math.round(venue.distance_m - venue.radius_m))} m daha yaklaşman gerek`}
+            variant="ghost"
+            disabled
+            onPress={() => {}}
+            compact
+          />
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const insets = useInsets();
   const space = useTabBarSpace();
   const { width } = useWindowDimensions();
@@ -148,11 +241,12 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
     setSelectedId(v.id);
     mapRef.current?.animateToRegion(
       { latitude: v.lat - 0.0011, longitude: v.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
-      450,
+      500,
     );
   }
 
   function onMarkerPress(v: Venue) {
+    tap();
     const idx = venues.findIndex((x) => x.id === v.id);
     if (idx >= 0) listRef.current?.scrollToOffset({ offset: idx * STEP, animated: true });
     focusVenue(v);
@@ -161,14 +255,18 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   function onMomentumEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const idx = Math.round(e.nativeEvent.contentOffset.x / STEP);
     const v = venues[Math.max(0, Math.min(idx, venues.length - 1))];
-    if (v && v.id !== selectedId) focusVenue(v);
+    if (v && v.id !== selectedId) {
+      tap();
+      focusVenue(v);
+    }
   }
 
   function recenter() {
     if (!coords) return;
+    tap();
     mapRef.current?.animateToRegion(
       { latitude: coords.lat - 0.0011, longitude: coords.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
-      450,
+      500,
     );
   }
 
@@ -183,7 +281,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         p_lng: pos.coords.longitude,
       });
       if (error) Alert.alert('Check-in yapılamadı', error.message);
-      else onCheckedIn();
+      else {
+        success();
+        onCheckedIn();
+      }
     } catch (e) {
       Alert.alert('Konum alınamadı', e instanceof Error ? e.message : String(e));
     } finally {
@@ -196,21 +297,30 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   if (denied) {
     return (
       <View style={styles.center}>
-        <View style={styles.bigIcon}>
-          <Ionicons name="location" size={40} color="#fff" />
-        </View>
-        <Text style={styles.centerTitle}>Konum iznine ihtiyacımız var</Text>
-        <Text style={styles.centerText}>
-          Yakınındaki mekanları göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun başkalarına
-          gösterilmez.
-        </Text>
-        <AnimatedButton title="İzin ver" onPress={load} style={{ marginTop: 22, alignSelf: 'stretch' }} />
-        <AnimatedButton
-          title="Ayarları aç"
-          variant="ghost"
-          onPress={() => Linking.openSettings()}
-          style={{ marginTop: 10, alignSelf: 'stretch' }}
-        />
+        <Backdrop />
+        <FadeIn scale={0.9} y={20}>
+          <View style={styles.bigIconWrap}>
+            <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bigIcon}>
+              <Ionicons name="location" size={40} color="#fff" />
+            </LinearGradient>
+          </View>
+        </FadeIn>
+        <FadeIn delay={120}>
+          <Text style={styles.centerTitle}>Konum iznine ihtiyacımız var</Text>
+          <Text style={styles.centerText}>
+            Yakınındaki mekanları göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun
+            başkalarına gösterilmez.
+          </Text>
+        </FadeIn>
+        <FadeIn delay={220} style={{ alignSelf: 'stretch' }}>
+          <AnimatedButton title="İzin ver" onPress={load} style={{ marginTop: 22 }} />
+          <AnimatedButton
+            title="Ayarları aç"
+            variant="ghost"
+            onPress={() => Linking.openSettings()}
+            style={{ marginTop: 10 }}
+          />
+        </FadeIn>
       </View>
     );
   }
@@ -218,7 +328,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   if (loading || !coords) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.accentLight} />
+        <Backdrop />
+        <ActivityIndicator size="large" color={c.accent} />
         <Text style={[styles.centerText, { marginTop: 16 }]}>Konumun alınıyor…</Text>
       </View>
     );
@@ -241,7 +352,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         showsCompass={false}
         showsMyLocationButton={false}
         pitchEnabled={false}
-        userInterfaceStyle="dark"
+        userInterfaceStyle={c.scheme}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
       >
         {venues.map((v) => (
@@ -256,44 +367,41 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       </MapView>
 
       {/* Üst çubuk */}
-      <View style={[styles.topBar, { top: insets.top + 8 }]} pointerEvents="box-none">
+      <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
         <View style={styles.brandChip}>
-          <LinearGradient
-            colors={gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.brandDot}
-          />
+          <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandDot} />
           <Text style={styles.brandText}>{BRAND}</Text>
         </View>
         <View style={styles.topButtons}>
           {isAdmin ? (
             <Pressable style={styles.roundBtn} onPress={() => setAdding(true)} hitSlop={6}>
-              <Ionicons name="add" size={22} color={colors.text} />
+              <Ionicons name="add" size={22} color={c.text} />
             </Pressable>
           ) : null}
           <Pressable style={styles.roundBtn} onPress={load} hitSlop={6}>
-            <Ionicons name="refresh" size={19} color={colors.text} />
+            <Ionicons name="refresh" size={19} color={c.text} />
           </Pressable>
           <Pressable style={styles.roundBtn} onPress={recenter} hitSlop={6}>
-            <Ionicons name="navigate" size={19} color={colors.text} />
+            <Ionicons name="navigate" size={19} color={c.text} />
           </Pressable>
         </View>
-      </View>
+      </FadeIn>
 
       {/* Şu an bir mekandaysan */}
       {active ? (
-        <Pressable style={[styles.livePill, { top: insets.top + 64 }]} onPress={onOpenVenue}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText} numberOfLines={1}>
-            {active.venue_name} · Buradasın
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.text} />
-        </Pressable>
+        <FadeIn y={-10} scale={0.95} style={[styles.liveWrap, { top: insets.top + 64 }]}>
+          <Pressable style={styles.livePill} onPress={onOpenVenue}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText} numberOfLines={1}>
+              {active.venue_name} · Buradasın
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={c.text} />
+          </Pressable>
+        </FadeIn>
       ) : null}
 
       {/* Alt: mekan kartları */}
-      <View style={[styles.carouselWrap, { bottom: space + 4 }]} pointerEvents="box-none">
+      <FadeIn y={40} delay={250} duration={520} style={[styles.carouselWrap, { bottom: space + 4 }]}>
         {venues.length === 0 ? (
           <View style={[styles.card, { width: width - 32, marginLeft: 16 }]}>
             <Text style={styles.cardName}>Yakında kayıtlı mekan yok</Text>
@@ -322,62 +430,22 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
             decelerationRate="fast"
             onMomentumScrollEnd={onMomentumEnd}
             getItemLayout={(_, index) => ({ length: STEP, offset: STEP * index, index })}
-            contentContainerStyle={{ paddingLeft: 16, paddingRight: width - CARD_W - 16 }}
-            renderItem={({ item }) => {
-              const inRange = item.distance_m <= item.radius_m;
-              const here = active?.venue_id === item.id;
-              const selected = item.id === selectedId;
-              return (
-                <Pressable
-                  onPress={() => onMarkerPress(item)}
-                  style={[styles.card, { width: CARD_W, marginRight: GAP }, selected && styles.cardSelected]}
-                >
-                  <View style={styles.cardTop}>
-                    <View style={styles.emojiTile}>
-                      <Text style={styles.emoji}>{categoryEmoji(item.category)}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.cardMeta}>
-                        {fmtDistance(item.distance_m)} · {inRange ? 'buradasın' : 'uzakta'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.liveRow}>
-                    <View style={[styles.dot, { backgroundColor: item.active_count > 0 ? colors.success : colors.border }]} />
-                    <Text style={styles.liveCount}>
-                      {item.active_count > 0 ? `${item.active_count} kişi şu an burada` : 'Şu an kimse yok'}
-                    </Text>
-                  </View>
-
-                  {here ? (
-                    <AnimatedButton title="Buradasın · Kişileri gör" icon="people" variant="soft" onPress={onOpenVenue} compact />
-                  ) : inRange ? (
-                    <AnimatedButton
-                      title="Check-in yap"
-                      icon="location"
-                      onPress={() => checkIn(item)}
-                      loading={busyVenue === item.id}
-                      compact
-                    />
-                  ) : (
-                    <AnimatedButton
-                      title={`${Math.max(1, Math.round(item.distance_m - item.radius_m))} m daha yaklaşman gerek`}
-                      variant="ghost"
-                      disabled
-                      onPress={() => {}}
-                      compact
-                    />
-                  )}
-                </Pressable>
-              );
-            }}
+            contentContainerStyle={{ paddingLeft: 16, paddingRight: width - CARD_W - 16, paddingVertical: 8 }}
+            renderItem={({ item }) => (
+              <VenueCard
+                venue={item}
+                width={CARD_W}
+                selected={item.id === selectedId}
+                here={active?.venue_id === item.id}
+                busy={busyVenue === item.id}
+                onSelect={() => onMarkerPress(item)}
+                onCheckIn={() => checkIn(item)}
+                onOpenVenue={onOpenVenue}
+              />
+            )}
           />
         )}
-      </View>
+      </FadeIn>
 
       <AddVenueModal
         visible={adding}
@@ -389,139 +457,147 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, backgroundColor: colors.bg },
-  bigIcon: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  centerTitle: { color: colors.text, fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  centerText: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, backgroundColor: c.bg },
+    bigIconWrap: {
+      shadowColor: c.accent,
+      shadowOpacity: 0.45,
+      shadowRadius: 22,
+      shadowOffset: { width: 0, height: 10 },
+      marginBottom: 22,
+      alignSelf: 'center',
+    },
+    bigIcon: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
+    centerTitle: { color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center', letterSpacing: -0.4 },
+    centerText: { color: c.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
 
-  // pin
-  markerWrap: { alignItems: 'center', width: 60, height: 62 },
-  pin: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    borderWidth: 2.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinSelected: { borderColor: colors.accentLight, backgroundColor: colors.card2 },
-  pinMine: { borderColor: colors.success },
-  pinEmoji: { fontSize: 20 },
-  pinBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -8,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 5,
-    backgroundColor: colors.pink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.bg,
-  },
-  pinBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  pinTail: {
-    width: 10,
-    height: 10,
-    marginTop: -6,
-    backgroundColor: colors.border,
-    transform: [{ rotate: '45deg' }],
-  },
-  pinTailSelected: { backgroundColor: colors.accentLight },
-  pinTailMine: { backgroundColor: colors.success },
+    // pin
+    markerWrap: { alignItems: 'center', width: 60, height: 62 },
+    pin: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.card,
+      borderWidth: 2.5,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pinSelected: { borderColor: c.accent, backgroundColor: c.card2 },
+    pinMine: { borderColor: c.success },
+    pinEmoji: { fontSize: 20 },
+    pinBadge: {
+      position: 'absolute',
+      top: -6,
+      right: -8,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      paddingHorizontal: 5,
+      backgroundColor: c.pink,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: c.card,
+    },
+    pinBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+    pinTail: {
+      width: 10,
+      height: 10,
+      marginTop: -6,
+      backgroundColor: c.border,
+      transform: [{ rotate: '45deg' }],
+    },
+    pinTailSelected: { backgroundColor: c.accent },
+    pinTailMine: { backgroundColor: c.success },
 
-  // üst
-  topBar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  brandChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(21,21,43,0.94)',
-    borderRadius: 22,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  brandDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
-  brandText: { color: colors.text, fontWeight: '800', fontSize: 16 },
-  topButtons: { flexDirection: 'row' },
-  roundBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(21,21,43,0.94)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  livePill: {
-    position: 'absolute',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(21,21,43,0.96)',
-    borderRadius: 22,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.5)',
-    maxWidth: '80%',
-  },
-  liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.success, marginRight: 8 },
-  liveText: { color: colors.text, fontWeight: '700', fontSize: 14, marginRight: 6, flexShrink: 1 },
+    // üst
+    topBar: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    brandChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.glass,
+      borderRadius: 22,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity * 0.6,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+    },
+    brandDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
+    brandText: { color: c.text, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
+    topButtons: { flexDirection: 'row' },
+    roundBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 8,
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity * 0.6,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    liveWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    livePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.glass,
+      borderRadius: 22,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: c.success,
+      maxWidth: '80%',
+    },
+    liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: c.success, marginRight: 8 },
+    liveText: { color: c.text, fontWeight: '700', fontSize: 14, marginRight: 6, flexShrink: 1 },
 
-  // alt kartlar
-  carouselWrap: { position: 'absolute', left: 0, right: 0 },
-  card: {
-    backgroundColor: 'rgba(21,21,43,0.98)',
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  cardSelected: { borderColor: 'rgba(161,139,255,0.7)' },
-  cardTop: { flexDirection: 'row', alignItems: 'center' },
-  emojiTile: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: colors.card2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  emoji: { fontSize: 24 },
-  cardName: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  cardMeta: { color: colors.muted, fontSize: 13, marginTop: 3, lineHeight: 19 },
-  liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  liveCount: { color: colors.text, fontSize: 14, fontWeight: '600' },
-});
+    // alt kartlar
+    carouselWrap: { position: 'absolute', left: 0, right: 0 },
+    card: {
+      backgroundColor: c.glass,
+      borderRadius: 26,
+      padding: 16,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    cardSelected: { borderColor: c.accent },
+    cardTop: { flexDirection: 'row', alignItems: 'center' },
+    emojiTile: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: c.card2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    emoji: { fontSize: 24 },
+    cardName: { color: c.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+    cardMeta: { color: c.muted, fontSize: 13, marginTop: 3, lineHeight: 19 },
+    liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 12 },
+    dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    liveCount: { color: c.text, fontSize: 14, fontWeight: '600' },
+  });

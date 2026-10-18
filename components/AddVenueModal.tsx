@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AnimatedButton from './AnimatedButton';
 import AnimatedInput from './AnimatedInput';
+import { tap } from '../lib/haptics';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 import { CATEGORIES } from '../lib/venue';
 
 type Props = {
@@ -17,6 +19,7 @@ const RADII = [50, 80, 150, 300];
 
 // Sadece yönetici hesaplar görür: bulunduğun konuma mekan ekler (test ve ilk mekanlar için).
 export default function AddVenueModal({ visible, coords, onClose, onAdded }: Props) {
+  const styles = useStyles(makeStyles);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('cafe');
   const [radius, setRadius] = useState(80);
@@ -69,7 +72,10 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
             {CATEGORIES.map((c) => (
               <Pressable
                 key={c.key}
-                onPress={() => setCategory(c.key)}
+                onPress={() => {
+                  tap();
+                  setCategory(c.key);
+                }}
                 style={[styles.pill, category === c.key && styles.pillOn]}
               >
                 <Text style={[styles.pillText, category === c.key && styles.pillTextOn]}>
@@ -82,7 +88,14 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
           <Text style={styles.label}>Check-in yarıçapı</Text>
           <View style={styles.wrap}>
             {RADII.map((r) => (
-              <Pressable key={r} onPress={() => setRadius(r)} style={[styles.pill, radius === r && styles.pillOn]}>
+              <Pressable
+                key={r}
+                onPress={() => {
+                  tap();
+                  setRadius(r);
+                }}
+                style={[styles.pill, radius === r && styles.pillOn]}
+              >
                 <Text style={[styles.pillText, radius === r && styles.pillTextOn]}>{r} m</Text>
               </Pressable>
             ))}
@@ -96,27 +109,35 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
-  cancel: { color: colors.accentLight, fontSize: 16 },
-  sub: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 20 },
-  label: { color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 14 },
-  pill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  pillOn: { backgroundColor: 'rgba(124,92,255,0.22)', borderColor: colors.accent },
-  pillText: { color: colors.muted, fontWeight: '600' },
-  pillTextOn: { color: colors.text },
-  error: { color: colors.danger, marginBottom: 6 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    content: { padding: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    title: { color: c.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
+    cancel: { color: c.accentLight, fontSize: 16 },
+    sub: { color: c.muted, fontSize: 14, lineHeight: 20, marginBottom: 20 },
+    label: {
+      color: c.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+      marginBottom: 10,
+    },
+    wrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 14 },
+    pill: {
+      borderRadius: 999,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    pillOn: { backgroundColor: c.accentSoft, borderColor: c.accent },
+    pillText: { color: c.muted, fontWeight: '600' },
+    pillTextOn: { color: c.text },
+    error: { color: c.danger, marginBottom: 6 },
+  });

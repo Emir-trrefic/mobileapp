@@ -1,11 +1,12 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colorFor } from '../lib/profile';
-import { colors, gradients } from '../lib/theme';
+import { useColors } from '../lib/theme';
 
 type Props = { uri?: string | null; name: string; size: number; ring?: boolean };
 
 export default function Avatar({ uri, name, size, ring }: Props) {
+  const c = useColors();
   const inner = ring ? size - 8 : size;
   const initial = name.trim() ? name.trim()[0].toUpperCase() : '?';
 
@@ -30,7 +31,7 @@ export default function Avatar({ uri, name, size, ring }: Props) {
 
   return (
     <LinearGradient
-      colors={gradients.primary}
+      colors={c.gradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
@@ -40,7 +41,7 @@ export default function Avatar({ uri, name, size, ring }: Props) {
           width: size - 4,
           height: size - 4,
           borderRadius: (size - 4) / 2,
-          backgroundColor: colors.bg,
+          backgroundColor: c.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}

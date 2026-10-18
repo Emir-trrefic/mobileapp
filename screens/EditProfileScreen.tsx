@@ -15,9 +15,11 @@ import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
+import { success, warning } from '../lib/haptics';
 import { INTERESTS, MAX_INTERESTS, MIN_INTERESTS, ageFrom, uploadAvatar } from '../lib/profile';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 import { PROFILE_COLUMNS } from '../lib/types';
 import type { Profile } from '../lib/types';
 
@@ -28,6 +30,7 @@ type Props = {
 };
 
 export default function EditProfileScreen({ profile, onClose, onSaved }: Props) {
+  const styles = useStyles(makeStyles);
   const [name, setName] = useState(profile.display_name);
   const [job, setJob] = useState(profile.job ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -45,7 +48,10 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   function toggle(label: string) {
     setInterests((cur) => {
       if (cur.includes(label)) return cur.filter((i) => i !== label);
-      if (cur.length >= MAX_INTERESTS) return cur;
+      if (cur.length >= MAX_INTERESTS) {
+        warning();
+        return cur;
+      }
       return [...cur, label];
     });
   }
@@ -79,11 +85,13 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
         .select(PROFILE_COLUMNS)
         .single();
       if (err) throw err;
+      success();
       onSaved(data as Profile);
       onClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
+      warning();
       Alert.alert('Kaydedilemedi', msg);
     } finally {
       setBusy(false);
@@ -161,36 +169,45 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 10,
-  },
-  cancel: { color: colors.accentLight, fontSize: 16, width: 40 },
-  headerTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
-  content: { padding: 20, paddingBottom: 60 },
-  photoBox: { alignItems: 'center', marginBottom: 26, marginTop: 6 },
-  ageRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    height: 60,
-    marginBottom: 14,
-  },
-  ageLabel: { color: colors.muted, fontWeight: '600' },
-  ageValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  count: { color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: -8, marginBottom: 14 },
-  section: { color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, marginTop: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap' },
-  error: { color: colors.danger, marginTop: 8 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 10,
+    },
+    cancel: { color: c.accentLight, fontSize: 16, width: 40 },
+    headerTitle: { color: c.text, fontSize: 17, fontWeight: '800' },
+    content: { padding: 20, paddingBottom: 60 },
+    photoBox: { alignItems: 'center', marginBottom: 26, marginTop: 6 },
+    ageRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: c.card,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      paddingHorizontal: 16,
+      height: 60,
+      marginBottom: 14,
+    },
+    ageLabel: { color: c.muted, fontWeight: '600' },
+    ageValue: { color: c.text, fontSize: 16, fontWeight: '700' },
+    count: { color: c.muted, fontSize: 12, textAlign: 'right', marginTop: -8, marginBottom: 14 },
+    section: {
+      color: c.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+      marginBottom: 12,
+      marginTop: 6,
+    },
+    chips: { flexDirection: 'row', flexWrap: 'wrap' },
+    error: { color: c.danger, marginTop: 8 },
+  });

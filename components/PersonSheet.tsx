@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from './AnimatedButton';
 import ProfileView from './ProfileView';
 import { ageFrom } from '../lib/profile';
-import { colors } from '../lib/theme';
+import { useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 import type { Person } from '../lib/types';
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 
 // Bir kişinin tam profili (aşağıdan açılan sayfa).
 export default function PersonSheet({ person, myInterests, onClose, onMeet, onMore }: Props) {
+  const styles = useStyles(makeStyles);
   const shared = person ? person.interests.filter((i) => myInterests.includes(i)) : [];
   const status = person?.request_status ?? null;
 
@@ -56,7 +58,11 @@ export default function PersonSheet({ person, myInterests, onClose, onMeet, onMo
                   <Text style={styles.doneText}>İstek gönderildi, yanıt bekleniyor…</Text>
                 </View>
               ) : (
-                <AnimatedButton title={`${person.display_name.split(' ')[0]} ile tanış`} icon="hand-left" onPress={() => onMeet(person)} />
+                <AnimatedButton
+                  title={`${person.display_name.split(' ')[0]} ile tanış`}
+                  icon="hand-left"
+                  onPress={() => onMeet(person)}
+                />
               )}
             </View>
           </>
@@ -66,28 +72,29 @@ export default function PersonSheet({ person, myInterests, onClose, onMeet, onMo
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  topRow: { position: 'absolute', top: 16, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
-  roundBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(11,11,22,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 20,
-    paddingBottom: 34,
-    backgroundColor: 'rgba(11,11,22,0.96)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  doneBox: { backgroundColor: colors.card2, borderRadius: 16, padding: 16, alignItems: 'center' },
-  doneText: { color: colors.text, fontWeight: '600', textAlign: 'center' },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+    topRow: { position: 'absolute', top: 16, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
+    roundBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.scrim,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    footer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      padding: 20,
+      paddingBottom: 34,
+      backgroundColor: c.glass,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    doneBox: { backgroundColor: c.card2, borderRadius: 18, padding: 16, alignItems: 'center' },
+    doneText: { color: c.text, fontWeight: '600', textAlign: 'center' },
+  });

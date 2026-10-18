@@ -14,9 +14,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
+import Backdrop from '../components/Backdrop';
+import { FadeIn } from '../components/Transition';
+import { warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
-import { colors } from '../lib/theme';
+import { useColors, useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 
 type Props = { initialMode: 'login' | 'signup'; onBack: () => void };
 
@@ -29,7 +33,6 @@ function passwordScore(pw: string): number {
   return s; // 0-4
 }
 
-const SCORE_COLORS = [colors.danger, colors.danger, colors.warn, colors.success, colors.success];
 const SCORE_LABELS = ['Çok kısa', 'Zayıf', 'Orta', 'İyi', 'Güçlü'];
 
 function translateError(message: string): string {
@@ -44,6 +47,8 @@ function translateError(message: string): string {
 }
 
 export default function AuthScreen({ initialMode, onBack }: Props) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const insets = useInsets();
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
@@ -58,22 +63,24 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
   const hello = useRef(new Animated.Value(0)).current;
 
   const score = passwordScore(password);
+  const scoreColors = [c.danger, c.danger, c.warn, c.success, c.success];
   const nameGuess = email.includes('@') ? email.split('@')[0] : '';
 
   useEffect(() => {
     heading.setValue(0);
-    Animated.timing(heading, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    Animated.timing(heading, { toValue: 1, duration: 380, useNativeDriver: true }).start();
   }, [mode, heading]);
 
   useEffect(() => {
-    Animated.timing(strength, { toValue: password ? score / 4 : 0, duration: 250, useNativeDriver: false }).start();
+    Animated.timing(strength, { toValue: password ? score / 4 : 0, duration: 260, useNativeDriver: false }).start();
   }, [score, password, strength]);
 
   useEffect(() => {
-    Animated.timing(hello, { toValue: nameGuess.length > 1 ? 1 : 0, duration: 250, useNativeDriver: true }).start();
+    Animated.timing(hello, { toValue: nameGuess.length > 1 ? 1 : 0, duration: 260, useNativeDriver: true }).start();
   }, [nameGuess, hello]);
 
   function doShake() {
+    warning();
     Animated.sequence(
       [10, -10, 8, -8, 4, 0].map((v) => Animated.timing(shake, { toValue: v, duration: 50, useNativeDriver: true })),
     ).start();
@@ -112,138 +119,156 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
   const isSignup = mode === 'signup';
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Boş alana dokununca klavye kapanır */}
-        <Pressable
-          style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}
-          onPress={Keyboard.dismiss}
-          accessible={false}
+    <View style={styles.flex}>
+      <Backdrop intensity={0.8} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
-
-          <Animated.View
-            style={{
-              opacity: heading,
-              transform: [{ translateY: heading.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
-            }}
-          >
-            <Text style={styles.title}>{isSignup ? 'Aramıza katıl' : 'Tekrar hoş geldin'}</Text>
-            <Text style={styles.subtitle}>
-              {isSignup ? 'Birkaç saniyede hesabını oluştur.' : 'Hesabınla giriş yap.'}
-            </Text>
-          </Animated.View>
-
-          <Animated.Text
-            style={[
-              styles.hello,
-              {
-                opacity: hello,
-                transform: [{ translateY: hello.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-              },
-            ]}
-          >
-            👋 Merhaba {nameGuess}
-          </Animated.Text>
-
-          <Animated.View style={{ transform: [{ translateX: shake }] }}>
-            <AnimatedInput
-              label="E-posta"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-            <AnimatedInput
-              ref={passwordRef}
-              label="Şifre"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              textContentType={isSignup ? 'newPassword' : 'password'}
-              returnKeyType="go"
-              onSubmitEditing={submit}
-            />
-
-            {isSignup && (
-              <View style={styles.strengthRow}>
-                <View style={styles.strengthTrack}>
-                  <Animated.View
-                    style={[
-                      styles.strengthBar,
-                      {
-                        backgroundColor: SCORE_COLORS[score],
-                        width: strength.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.strengthLabel, { color: password ? SCORE_COLORS[score] : colors.muted }]}>
-                  {password ? SCORE_LABELS[score] : 'Şifre gücü'}
-                </Text>
-              </View>
-            )}
-          </Animated.View>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <AnimatedButton
-            title={isSignup ? 'Hesap oluştur' : 'Giriş yap'}
-            onPress={submit}
-            loading={busy}
-            style={{ marginTop: 8 }}
-          />
-
+          {/* Boş alana dokununca klavye kapanır */}
           <Pressable
-            onPress={() => {
-              setError(null);
-              setMode(isSignup ? 'login' : 'signup');
-            }}
-            hitSlop={12}
+            style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}
+            onPress={Keyboard.dismiss}
+            accessible={false}
           >
-            <Text style={styles.switch}>
-              {isSignup ? 'Zaten hesabın var mı? Giriş yap' : 'Hesabın yok mu? Kayıt ol'}
-            </Text>
+            <FadeIn x={-14} y={0} duration={320}>
+              <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+                <Ionicons name="chevron-back" size={22} color={c.text} />
+              </Pressable>
+            </FadeIn>
+
+            <Animated.View
+              style={{
+                opacity: heading,
+                transform: [{ translateY: heading.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+              }}
+            >
+              <Text style={styles.title}>{isSignup ? 'Aramıza katıl' : 'Tekrar hoş geldin'}</Text>
+              <Text style={styles.subtitle}>
+                {isSignup ? 'Birkaç saniyede hesabını oluştur.' : 'Hesabınla giriş yap.'}
+              </Text>
+            </Animated.View>
+
+            <Animated.Text
+              style={[
+                styles.hello,
+                {
+                  opacity: hello,
+                  transform: [{ translateY: hello.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+                },
+              ]}
+            >
+              👋 Merhaba {nameGuess}
+            </Animated.Text>
+
+            <FadeIn delay={120} y={18}>
+              <Animated.View style={{ transform: [{ translateX: shake }] }}>
+                <AnimatedInput
+                  label="E-posta"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                />
+                <AnimatedInput
+                  ref={passwordRef}
+                  label="Şifre"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  textContentType={isSignup ? 'newPassword' : 'password'}
+                  returnKeyType="go"
+                  onSubmitEditing={submit}
+                />
+
+                {isSignup && (
+                  <View style={styles.strengthRow}>
+                    <View style={styles.strengthTrack}>
+                      <Animated.View
+                        style={[
+                          styles.strengthBar,
+                          {
+                            backgroundColor: scoreColors[score],
+                            width: strength.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.strengthLabel, { color: password ? scoreColors[score] : c.muted }]}>
+                      {password ? SCORE_LABELS[score] : 'Şifre gücü'}
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
+            </FadeIn>
+
+            {error ? (
+              <FadeIn y={6} duration={220}>
+                <Text style={styles.error}>{error}</Text>
+              </FadeIn>
+            ) : null}
+
+            <FadeIn delay={220} y={18}>
+              <AnimatedButton
+                title={isSignup ? 'Hesap oluştur' : 'Giriş yap'}
+                onPress={submit}
+                loading={busy}
+                style={{ marginTop: 8 }}
+              />
+
+              <Pressable
+                onPress={() => {
+                  setError(null);
+                  setMode(isSignup ? 'login' : 'signup');
+                }}
+                hitSlop={12}
+              >
+                <Text style={styles.switch}>
+                  {isSignup ? 'Zaten hesabın var mı? ' : 'Hesabın yok mu? '}
+                  <Text style={styles.switchStrong}>{isSignup ? 'Giriş yap' : 'Kayıt ol'}</Text>
+                </Text>
+              </Pressable>
+            </FadeIn>
           </Pressable>
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1 },
-  content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 64, paddingBottom: 32 },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-  },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800' },
-  subtitle: { color: colors.muted, fontSize: 16, marginTop: 6, marginBottom: 14 },
-  hello: { color: colors.accentLight, fontSize: 15, fontWeight: '600', marginBottom: 16, minHeight: 20 },
-  strengthRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  strengthTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
-  strengthBar: { height: 6, borderRadius: 3 },
-  strengthLabel: { width: 74, textAlign: 'right', fontSize: 12, fontWeight: '600' },
-  error: { color: colors.danger, fontSize: 14, marginBottom: 6, marginTop: 4 },
-  switch: { color: colors.accentLight, textAlign: 'center', marginTop: 20, fontSize: 15 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    flex: { flex: 1, backgroundColor: c.bg },
+    scroll: { flexGrow: 1 },
+    content: { flexGrow: 1, paddingHorizontal: 24 },
+    backBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 28,
+    },
+    title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
+    subtitle: { color: c.muted, fontSize: 16, marginTop: 6, marginBottom: 14 },
+    hello: { color: c.accentLight, fontSize: 15, fontWeight: '600', marginBottom: 16, minHeight: 20 },
+    strengthRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    strengthTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
+    strengthBar: { height: 6, borderRadius: 3 },
+    strengthLabel: { width: 74, textAlign: 'right', fontSize: 12, fontWeight: '700' },
+    error: { color: c.danger, fontSize: 14, marginBottom: 6, marginTop: 4 },
+    switch: { color: c.muted, textAlign: 'center', marginTop: 20, fontSize: 15 },
+    switchStrong: { color: c.accentLight, fontWeight: '700' },
+  });

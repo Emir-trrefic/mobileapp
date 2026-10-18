@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { ComponentProps } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { tap } from '../lib/haptics';
 import { TAB_H, useTabBarOffset } from '../lib/layout';
-import { colors } from '../lib/theme';
+import { useColors, useStyles } from '../lib/theme';
+import type { Palette } from '../lib/theme';
 
 export type TabKey = 'map' | 'venue' | 'profile';
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -14,12 +17,31 @@ const TABS: { key: TabKey; label: string; on: IconName; off: IconName }[] = [
   { key: 'profile', label: 'Profil', on: 'person', off: 'person-outline' },
 ];
 
+const SIDE = 20; // çubuğun kenar boşluğu
+const PAD = 8; // çubuğun iç boşluğu
+
 type Props = {
   tab: TabKey;
   onChange: (t: TabKey) => void;
   badge?: number; // bekleyen istek sayısı
   live?: boolean; // bir mekanda check-in'li
 };
+
+function Badge({ count }: { count: number }) {
+  const styles = useStyles(makeStyles);
+  const pop = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    pop.setValue(0);
+    Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 18 }).start();
+  }, [count, pop]);
+
+  return (
+    <Animated.View style={[styles.badge, { transform: [{ scale: pop }] }]}>
+      <Text style={styles.badgeText}>{count > 9 ? '9+' : count}</Text>
+    </Animated.View>
+  );
+}
 
 function Item({
   def,
@@ -34,47 +56,69 @@ function Item({
   badge?: number;
   live?: boolean;
 }) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const pop = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.spring(pop, { toValue: selected ? 1 : 0, useNativeDriver: true, speed: 22, bounciness: 12 }).start();
+    Animated.spring(pop, { toValue: selected ? 1 : 0, useNativeDriver: true, speed: 18, bounciness: 14 }).start();
   }, [selected, pop]);
-
-  const color = selected ? colors.text : colors.muted;
 
   return (
     <Pressable style={styles.item} onPress={onPress} hitSlop={6}>
       <Animated.View
-        style={[
-          styles.iconWrap,
-          selected && styles.iconWrapOn,
-          { transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
-        ]}
+        style={{
+          alignItems: 'center',
+          transform: [
+            { scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) },
+            { translateY: pop.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }) },
+          ],
+        }}
       >
-        <Ionicons name={selected ? def.on : def.off} size={22} color={color} />
-        {badge ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
-          </View>
-        ) : live ? (
-          <View style={styles.liveDot} />
-        ) : null}
+        <View>
+          <Ionicons name={selected ? def.on : def.off} size={23} color={selected ? c.accentLight : c.muted} />
+          {badge ? <Badge count={badge} /> : live ? <View style={styles.liveDot} /> : null}
+        </View>
+        <Text style={[styles.label, { color: selected ? c.accentLight : c.muted }]}>{def.label}</Text>
       </Animated.View>
-      <Text style={[styles.label, { color }]}>{def.label}</Text>
     </Pressable>
   );
 }
 
 export default function TabBar({ tab, onChange, badge, live }: Props) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
   const offset = useTabBarOffset();
+  const { width } = useWindowDimensions();
+
+  const itemW = (width - SIDE * 2 - PAD * 2) / TABS.length;
+  const index = TABS.findIndex((t) => t.key === tab);
+  const x = useRef(new Animated.Value(index * itemW)).current;
+
+  // Seçili sekmenin arkasındaki "hap" yatay kayarak yer değiştirir.
+  useEffect(() => {
+    Animated.spring(x, { toValue: index * itemW, useNativeDriver: true, speed: 16, bounciness: 9 }).start();
+  }, [index, itemW, x]);
+
   return (
     <View style={[styles.bar, { bottom: offset }]}>
+      <Animated.View style={[styles.indicator, { width: itemW, transform: [{ translateX: x }] }]}>
+        <LinearGradient
+          colors={[c.accentSoft, c.pinkSoft]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
       {TABS.map((t) => (
         <Item
           key={t.key}
           def={t}
           selected={tab === t.key}
-          onPress={() => onChange(t.key)}
+          onPress={() => {
+            if (tab !== t.key) tap();
+            onChange(t.key);
+          }}
           badge={t.key === 'venue' ? badge : undefined}
           live={t.key === 'venue' ? live : undefined}
         />
@@ -83,51 +127,60 @@ export default function TabBar({ tab, onChange, badge, live }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: TAB_H,
-    borderRadius: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(21,21,43,0.97)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
-  },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  iconWrap: { width: 48, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  iconWrapOn: { backgroundColor: 'rgba(124,92,255,0.28)' },
-  label: { fontSize: 11, fontWeight: '600', marginTop: 3 },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: 2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: colors.pink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  liveDot: {
-    position: 'absolute',
-    top: 0,
-    right: 8,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: colors.success,
-    borderWidth: 2,
-    borderColor: colors.card,
-  },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    bar: {
+      position: 'absolute',
+      left: SIDE,
+      right: SIDE,
+      height: TAB_H,
+      borderRadius: 32,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: PAD,
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 12,
+    },
+    indicator: {
+      position: 'absolute',
+      left: PAD,
+      top: 7,
+      bottom: 7,
+      borderRadius: 25,
+      overflow: 'hidden',
+    },
+    item: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center' },
+    label: { fontSize: 11, fontWeight: '700', marginTop: 3 },
+    badge: {
+      position: 'absolute',
+      top: -6,
+      right: -10,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      backgroundColor: c.pink,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: c.card,
+    },
+    badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+    liveDot: {
+      position: 'absolute',
+      top: -2,
+      right: -4,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: c.success,
+      borderWidth: 2,
+      borderColor: c.card,
+    },
+  });
