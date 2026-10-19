@@ -78,6 +78,7 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
         <Animated.Text style={[styles.legal, legal]}>
           Devam ederek 18 yaşından büyük olduğunu ve kullanım koşullarını kabul ettiğini onaylarsın.
         </Animated.Text>
+        <Text style={styles.version}>Sürüm 0.5 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );
@@ -109,5 +110,6 @@ const makeStyles = (c: Palette) =>
       marginTop: 12,
     },
     secondaryText: { color: c.text, fontSize: 17, fontWeight: '700' },
+    version: { color: c.muted, opacity: 0.6, fontSize: 11, textAlign: 'center', marginTop: 10 },
     legal: { color: c.muted, fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 18, paddingHorizontal: 6 },
   });

@@ -3,12 +3,37 @@ import type { ErrorInfo, ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type Props = { children: ReactNode };
+
+// Yakalanmayan (async / olay) hataları da ekranda göster.
+const reporters = new Set<(e: Error) => void>();
+try {
+  const eu = (globalThis as unknown as { ErrorUtils?: { getGlobalHandler: () => (e: Error, f?: boolean) => void; setGlobalHandler: (h: (e: Error, f?: boolean) => void) => void } }).ErrorUtils;
+  if (eu) {
+    const prev = eu.getGlobalHandler();
+    eu.setGlobalHandler((e, fatal) => {
+      reporters.forEach((r) => r(e));
+      prev(e, fatal);
+    });
+  }
+} catch {
+  // desteklenmiyorsa yok say
+}
 type State = { error: Error | null; info: string };
 
 // Bir ekran çökerse beyaz ekran yerine hatayı yazıyla gösterir ve tekrar denemeye izin verir.
 // (Tema bilgisine bağlı değil: tema kodunun kendisi hata verse bile çalışsın diye sabit renkler kullanır.)
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null, info: '' };
+
+  componentDidMount() {
+    reporters.add(this.report);
+  }
+
+  componentWillUnmount() {
+    reporters.delete(this.report);
+  }
+
+  report = (error: Error) => this.setState({ error, info: 'Yakalanmayan hata' });
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
