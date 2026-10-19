@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import AnimatedButton from './components/AnimatedButton';
 import Backdrop from './components/Backdrop';
+import ErrorBoundary from './components/ErrorBoundary';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
 import { FadeIn, Pane } from './components/Transition';
@@ -65,9 +66,11 @@ function LocationHeartbeat({ active, onEnded }: { active: ActiveCheckin | null; 
 
 export default function App() {
   return (
-    <LocationProvider>
-      <AppShell />
-    </LocationProvider>
+    <ErrorBoundary>
+      <LocationProvider>
+        <AppShell />
+      </LocationProvider>
+    </ErrorBoundary>
   );
 }
 
@@ -224,9 +227,9 @@ function AppShell() {
             }}
           />
         ) : (
-          <FadeIn key="auth" x={36} y={0} duration={360} style={styles.fill}>
+          <View style={styles.fill}>
             <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
-          </FadeIn>
+          </View>
         )}
       </View>
     );
