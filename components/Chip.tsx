@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 import { tap } from '../lib/haptics';
-import { emojiFor } from '../lib/profile';
 import { useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
@@ -15,7 +14,6 @@ type Props = {
 
 export default function Chip({ label, selected, highlight, small, onPress }: Props) {
   const styles = useStyles(makeStyles);
-  const emoji = emojiFor(label);
   const scale = useRef(new Animated.Value(1)).current;
   const first = useRef(true);
 
@@ -42,7 +40,6 @@ export default function Chip({ label, selected, highlight, small, onPress }: Pro
       ]}
     >
       <Text style={[styles.text, small && styles.textSmall, (selected || highlight) && styles.textOn]}>
-        {emoji ? `${emoji} ` : ''}
         {label}
       </Text>
     </Animated.View>

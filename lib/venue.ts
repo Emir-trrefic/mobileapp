@@ -1,15 +1,17 @@
-export const CATEGORIES = [
-  { key: 'cafe', label: 'Kafe', emoji: '☕' },
-  { key: 'restaurant', label: 'Restoran', emoji: '🍽️' },
-  { key: 'bar', label: 'Bar', emoji: '🍸' },
-  { key: 'park', label: 'Park', emoji: '🌳' },
-  { key: 'gym', label: 'Spor', emoji: '🏋️' },
-  { key: 'library', label: 'Kütüphane', emoji: '📚' },
-  { key: 'campus', label: 'Kampüs', emoji: '🎓' },
+export type CategoryIcon = 'cafe' | 'restaurant' | 'beer' | 'leaf' | 'barbell' | 'library' | 'school' | 'location';
+
+export const CATEGORIES: { key: string; label: string; icon: CategoryIcon }[] = [
+  { key: 'cafe', label: 'Kafe', icon: 'cafe' },
+  { key: 'restaurant', label: 'Restoran', icon: 'restaurant' },
+  { key: 'bar', label: 'Bar', icon: 'beer' },
+  { key: 'park', label: 'Park', icon: 'leaf' },
+  { key: 'gym', label: 'Spor', icon: 'barbell' },
+  { key: 'library', label: 'Kütüphane', icon: 'library' },
+  { key: 'campus', label: 'Kampüs', icon: 'school' },
 ];
 
-export function categoryEmoji(key?: string | null): string {
-  return CATEGORIES.find((c) => c.key === key)?.emoji ?? '📍';
+export function categoryIcon(key?: string | null): CategoryIcon {
+  return CATEGORIES.find((c) => c.key === key)?.icon ?? 'location';
 }
 
 export function fmtDistance(m: number): string {

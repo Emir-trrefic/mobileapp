@@ -132,7 +132,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     }
     if (accept) {
       success();
-      Alert.alert('Eşleştiniz! 🎉', `${r.display_name} ile tanışabilirsiniz. Mekanda etrafına bak 🙂`);
+      Alert.alert('Eşleştiniz', `${r.display_name} ile tanışabilirsiniz. Mekanda etrafına bak.`);
     } else {
       tap();
     }

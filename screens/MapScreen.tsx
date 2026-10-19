@@ -28,7 +28,7 @@ import { supabase } from '../lib/supabase';
 import { BRAND, useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, Venue } from '../lib/types';
-import { categoryEmoji, fmtDistance } from '../lib/venue';
+import { categoryIcon, fmtDistance } from '../lib/venue';
 
 type Props = {
   active: ActiveCheckin | null;
@@ -70,7 +70,7 @@ function VenueMarker({
     >
       <View style={styles.markerWrap}>
         <View style={[styles.pin, selected && styles.pinSelected, mine && styles.pinMine]}>
-          <Text style={styles.pinEmoji}>{categoryEmoji(venue.category)}</Text>
+          <Ionicons name={categoryIcon(venue.category)} size={20} color={selected || mine ? '#fff' : c.accent} />
           {venue.active_count > 0 ? (
             <View style={styles.pinBadge}>
               <Text style={styles.pinBadgeText}>{venue.active_count}</Text>
@@ -130,7 +130,7 @@ function VenueCard({
       <Pressable onPress={onSelect} onPressIn={() => to(0.98)} onPressOut={() => to(1)} style={[styles.card, selected && styles.cardSelected]}>
         <View style={styles.cardTop}>
           <View style={styles.emojiTile}>
-            <Text style={styles.emoji}>{categoryEmoji(venue.category)}</Text>
+            <Ionicons name={categoryIcon(venue.category)} size={24} color={c.accent} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardName} numberOfLines={1}>
@@ -487,7 +487,6 @@ const makeStyles = (c: Palette) =>
     },
     pinSelected: { borderColor: c.accent, backgroundColor: c.card2 },
     pinMine: { borderColor: c.success },
-    pinEmoji: { fontSize: 20 },
     pinBadge: {
       position: 'absolute',
       top: -6,
@@ -594,7 +593,6 @@ const makeStyles = (c: Palette) =>
       justifyContent: 'center',
       marginRight: 12,
     },
-    emoji: { fontSize: 24 },
     cardName: { color: c.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
     cardMeta: { color: c.muted, fontSize: 13, marginTop: 3, lineHeight: 19 },
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 12 },

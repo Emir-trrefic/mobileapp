@@ -79,7 +79,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
                 style={[styles.pill, category === c.key && styles.pillOn]}
               >
                 <Text style={[styles.pillText, category === c.key && styles.pillTextOn]}>
-                  {c.emoji} {c.label}
+                  {c.label}
                 </Text>
               </Pressable>
             ))}

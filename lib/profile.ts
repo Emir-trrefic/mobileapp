@@ -4,38 +4,34 @@ export const MIN_AGE = 18;
 export const MAX_INTERESTS = 8;
 export const MIN_INTERESTS = 3;
 
-export const INTERESTS: { label: string; emoji: string }[] = [
-  { label: 'Kahve', emoji: '☕' },
-  { label: 'Kitap', emoji: '📚' },
-  { label: 'Müzik', emoji: '🎵' },
-  { label: 'Film', emoji: '🎬' },
-  { label: 'Dizi', emoji: '📺' },
-  { label: 'Spor', emoji: '🏃' },
-  { label: 'Fitness', emoji: '🏋️' },
-  { label: 'Yoga', emoji: '🧘' },
-  { label: 'Seyahat', emoji: '✈️' },
-  { label: 'Fotoğraf', emoji: '📷' },
-  { label: 'Yemek', emoji: '🍜' },
-  { label: 'Oyun', emoji: '🎮' },
-  { label: 'Yazılım', emoji: '💻' },
-  { label: 'Girişimcilik', emoji: '🚀' },
-  { label: 'Sanat', emoji: '🎨' },
-  { label: 'Doğa', emoji: '🌿' },
-  { label: 'Dans', emoji: '💃' },
-  { label: 'Satranç', emoji: '♟️' },
-  { label: 'Hayvanlar', emoji: '🐶' },
-  { label: 'Tiyatro', emoji: '🎭' },
-  { label: 'Moda', emoji: '👗' },
-  { label: 'Futbol', emoji: '⚽' },
-  { label: 'Basketbol', emoji: '🏀' },
-  { label: 'Bisiklet', emoji: '🚴' },
-  { label: 'Gitar', emoji: '🎸' },
-  { label: 'Teknoloji', emoji: '🤖' },
+export const INTERESTS: { label: string }[] = [
+  { label: 'Kahve' },
+  { label: 'Kitap' },
+  { label: 'Müzik' },
+  { label: 'Film' },
+  { label: 'Dizi' },
+  { label: 'Spor' },
+  { label: 'Fitness' },
+  { label: 'Yoga' },
+  { label: 'Seyahat' },
+  { label: 'Fotoğraf' },
+  { label: 'Yemek' },
+  { label: 'Oyun' },
+  { label: 'Yazılım' },
+  { label: 'Girişimcilik' },
+  { label: 'Sanat' },
+  { label: 'Doğa' },
+  { label: 'Dans' },
+  { label: 'Satranç' },
+  { label: 'Hayvanlar' },
+  { label: 'Tiyatro' },
+  { label: 'Moda' },
+  { label: 'Futbol' },
+  { label: 'Basketbol' },
+  { label: 'Bisiklet' },
+  { label: 'Gitar' },
+  { label: 'Teknoloji' },
 ];
-
-export function emojiFor(label: string): string {
-  return INTERESTS.find((i) => i.label === label)?.emoji ?? '';
-}
 
 export function ageFrom(birthYear: number | null | undefined): number | null {
   if (!birthYear) return null;

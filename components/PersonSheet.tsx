@@ -51,7 +51,7 @@ export default function PersonSheet({ person, myInterests, onClose, onMeet, onMo
             <View style={styles.footer}>
               {status === 'accepted' ? (
                 <View style={styles.doneBox}>
-                  <Text style={styles.doneText}>Eşleştiniz ✓  Mekanda etrafına bak, bu kişi de burada 👋</Text>
+                  <Text style={styles.doneText}>Eşleştiniz. Mekanda etrafına bak, bu kişi de burada.</Text>
                 </View>
               ) : status === 'pending' ? (
                 <View style={styles.doneBox}>

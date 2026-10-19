@@ -162,7 +162,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
                 },
               ]}
             >
-              👋 Merhaba {nameGuess}
+              Merhaba {nameGuess}
             </Animated.Text>
 
             <FadeIn delay={120} y={18}>

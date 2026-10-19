@@ -240,7 +240,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                       : 'Geçerli bir doğum yılı gir.'}
                   </Text>
                 ) : age ? (
-                  <Text style={styles.good}>{age} yaşındasın ✓</Text>
+                  <Text style={styles.good}>{age} yaşındasın</Text>
                 ) : null}
               </>
             )}
@@ -257,7 +257,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                   }}
                 />
                 <Text style={styles.photoNote}>
-                  {photoUri ? 'Harika görünüyor 👌' : 'Dilersen şimdilik geçip sonra profilinden ekleyebilirsin.'}
+                  {photoUri ? 'Harika görünüyor' : 'Dilersen şimdilik geçip sonra profilinden ekleyebilirsin.'}
                 </Text>
               </View>
             )}

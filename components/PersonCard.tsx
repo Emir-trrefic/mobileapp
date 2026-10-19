@@ -48,7 +48,7 @@ export default function PersonCard({ person, width, shared, index, onPress, onMe
 
           {shared > 0 ? (
             <View style={styles.sharedPill}>
-              <Text style={styles.sharedText}>✨ {shared} ortak</Text>
+              <Text style={styles.sharedText}>{shared} ortak</Text>
             </View>
           ) : null}
 
@@ -66,7 +66,7 @@ export default function PersonCard({ person, width, shared, index, onPress, onMe
 
           {status === 'accepted' ? (
             <View style={[styles.statusPill, { backgroundColor: c.success }]}>
-              <Text style={styles.statusText}>Eşleştiniz ✓</Text>
+              <Text style={styles.statusText}>Eşleştiniz</Text>
             </View>
           ) : status === 'pending' ? (
             <View style={styles.statusPill}>
