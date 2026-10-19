@@ -54,7 +54,9 @@ export function hueFor(text: string): number {
 }
 
 export function colorFor(text: string): string {
-  return `hsl(${hueFor(text || '?')}, 62%, 50%)`;
+  const h = hueFor(text || '?');
+  // Lacivert/çelik mavisi tonları: her kişi biraz farklı ama hepsi paletin içinde.
+  return `hsl(${214 + (h % 26)}, ${42 + (h % 22)}%, ${24 + (h % 16)}%)`;
 }
 
 // Fotoğrafı Supabase Storage'daki "avatars" kovasına yükler, herkese açık adresini döner.

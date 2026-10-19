@@ -257,10 +257,10 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
         <Ghost x={cx - R * 0.35} y={cy + R * 1.3} size={14} delay={1200} />
 
         {/* Mekandaki, görünen kişiler */}
-        <Bubble name="Elif" meta="12 m" color="#F0407A" x={cx - R * 0.62} y={cy - R * 0.5} delay={500} period={2200} />
-        <Bubble name="Can" meta="8 m" color="#4F7BF5" x={cx + R * 0.66} y={cy - R * 0.32} delay={700} period={2600} />
-        <Bubble name="Zeynep" meta="20 m" color="#F59E3B" x={cx - R * 0.5} y={cy + R * 0.62} delay={900} period={2400} />
-        <Bubble name="Mert" meta="15 m" color="#1FB886" x={cx + R * 0.46} y={cy + R * 0.66} delay={1100} period={2800} />
+        <Bubble name="Elif" meta="12 m" color="#1E3A8A" x={cx - R * 0.62} y={cy - R * 0.5} delay={500} period={2200} />
+        <Bubble name="Can" meta="8 m" color="#3558C8" x={cx + R * 0.66} y={cy - R * 0.32} delay={700} period={2600} />
+        <Bubble name="Zeynep" meta="20 m" color="#475A85" x={cx - R * 0.5} y={cy + R * 0.62} delay={900} period={2400} />
+        <Bubble name="Mert" meta="15 m" color="#0F2A66" x={cx + R * 0.46} y={cy + R * 0.66} delay={1100} period={2800} />
 
         {/* Merkez: sen */}
         <Animated.View

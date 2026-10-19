@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,14 +15,15 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
+import { distanceMeters } from '../lib/geo';
 import { success, tap } from '../lib/haptics';
+import { qualityOf, useGps } from '../lib/location';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 import { BRAND, useColors, useStyles } from '../lib/theme';
@@ -70,7 +71,7 @@ function VenueMarker({
     >
       <View style={styles.markerWrap}>
         <View style={[styles.pin, selected && styles.pinSelected, mine && styles.pinMine]}>
-          <Ionicons name={categoryIcon(venue.category)} size={20} color={selected || mine ? '#fff' : c.accent} />
+          <Ionicons name={categoryIcon(venue.category)} size={20} color={c.accentLight} />
           {venue.active_count > 0 ? (
             <View style={styles.pinBadge}>
               <Text style={styles.pinBadgeText}>{venue.active_count}</Text>
@@ -90,6 +91,8 @@ function VenueCard({
   selected,
   here,
   busy,
+  distance,
+  accuracy,
   onSelect,
   onCheckIn,
   onOpenVenue,
@@ -97,6 +100,8 @@ function VenueCard({
   venue: Venue;
   width: number;
   selected: boolean;
+  distance: number; // canlı GPS'ten hesaplanan mesafe
+  accuracy: number; // GPS doğruluğu (m)
   here: boolean;
   busy: boolean;
   onSelect: () => void;
@@ -105,7 +110,8 @@ function VenueCard({
 }) {
   const c = useColors();
   const styles = useStyles(makeStyles);
-  const inRange = venue.distance_m <= venue.radius_m;
+  // Sunucuyla aynı kural: yarıçap + (en fazla 25 m) GPS doğruluk payı.
+  const inRange = distance - Math.min(accuracy, 25) <= venue.radius_m;
   const lift = useRef(new Animated.Value(selected ? 1 : 0)).current;
   const press = useRef(new Animated.Value(1)).current;
 
@@ -137,7 +143,7 @@ function VenueCard({
               {venue.name}
             </Text>
             <Text style={styles.cardMeta}>
-              {fmtDistance(venue.distance_m)} · {inRange ? 'buradasın' : 'uzakta'}
+              {fmtDistance(distance)} · {inRange ? 'check-in için yakınsın' : 'uzakta'}
             </Text>
           </View>
         </View>
@@ -155,7 +161,7 @@ function VenueCard({
           <AnimatedButton title="Check-in yap" icon="location" onPress={onCheckIn} loading={busy} compact />
         ) : (
           <AnimatedButton
-            title={`${Math.max(1, Math.round(venue.distance_m - venue.radius_m))} m daha yaklaşman gerek`}
+            title={`${Math.max(1, Math.round(distance - Math.min(accuracy, 25) - venue.radius_m))} m daha yaklaşman gerek`}
             variant="ghost"
             disabled
             onPress={() => {}}
@@ -179,10 +185,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const mapRef = useRef<MapView>(null);
   const listRef = useRef<FlatList<Venue>>(null);
 
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const gps = useGps();
+  const coords = useMemo(() => (gps.fix ? { lat: gps.fix.lat, lng: gps.fix.lng } : null), [gps.fix]);
+  const coordsRef = useRef(coords);
+  coordsRef.current = coords;
+  const anchor = useRef<{ lat: number; lng: number } | null>(null);
+
   const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [denied, setDenied] = useState(false);
   const [busyVenue, setBusyVenue] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -194,48 +203,45 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       Alert.alert('Kafeler alınamadı', error.message);
       return;
     }
+    anchor.current = { lat, lng };
     const list = (data ?? []) as Venue[];
     setVenues(list);
     setSelectedId((cur) => (cur && list.some((v) => v.id === cur) ? cur : (list[0]?.id ?? null)));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const perm = await Location.requestForegroundPermissionsAsync();
-    if (perm.status !== 'granted') {
-      setDenied(true);
-      setLoading(false);
-      return;
-    }
-    setDenied(false);
-    try {
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const me = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setCoords(me);
-      await fetchVenues(me.lat, me.lng);
-      const adm = await supabase.rpc('am_i_admin');
-      setIsAdmin(adm.data === true);
-    } catch (e) {
-      Alert.alert('Konum alınamadı', e instanceof Error ? e.message : String(e));
-    }
-    setLoading(false);
-  }, [fetchVenues]);
-
+  // Konum takibi harita açılınca başlar.
   useEffect(() => {
-    load();
-  }, [load]);
+    gps.start();
+    supabase.rpc('am_i_admin').then(({ data }) => setIsAdmin(data === true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // İlk konum gelince ve 150 m'den fazla yer değiştirince kafeleri yeniden getir.
+  useEffect(() => {
+    if (!coords) return;
+    const a = anchor.current;
+    if (!a || distanceMeters(a.lat, a.lng, coords.lat, coords.lng) > 150) fetchVenues(coords.lat, coords.lng);
+  }, [coords, fetchVenues]);
 
   // Check-in / check-out sonrası sayaçlar yenilensin.
   useEffect(() => {
-    if (coords) fetchVenues(coords.lat, coords.lng);
+    const c = coordsRef.current;
+    if (c) fetchVenues(c.lat, c.lng);
   }, [active?.checkin_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Canlı kişi sayıları 30 sn'de bir tazelenir.
   useEffect(() => {
-    if (!coords) return;
-    const t = setInterval(() => fetchVenues(coords.lat, coords.lng), 30_000);
+    const t = setInterval(() => {
+      const c = coordsRef.current;
+      if (c) fetchVenues(c.lat, c.lng);
+    }, 30_000);
     return () => clearInterval(t);
-  }, [coords, fetchVenues]);
+  }, [fetchVenues]);
+
+  const reload = useCallback(async () => {
+    await gps.start();
+    const c = coordsRef.current;
+    if (c) await fetchVenues(c.lat, c.lng);
+  }, [gps, fetchVenues]);
 
   function focusVenue(v: Venue) {
     setSelectedId(v.id);
@@ -271,14 +277,15 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   }
 
   async function checkIn(v: Venue) {
-    // Check-in anında konumu yeniden al, sunucu mesafeyi kendisi doğrular.
+    // Check-in anında taze ve yeterince doğru bir GPS ölçümü alınır; sunucu mesafeyi kendisi tekrar doğrular.
     setBusyVenue(v.id);
     try {
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const f = await gps.fresh();
       const { error } = await supabase.rpc('check_in', {
         p_venue: v.id,
-        p_lat: pos.coords.latitude,
-        p_lng: pos.coords.longitude,
+        p_lat: f.lat,
+        p_lng: f.lng,
+        p_accuracy: f.accuracy,
       });
       if (error) Alert.alert('Check-in yapılamadı', error.message);
       else {
@@ -286,7 +293,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         onCheckedIn();
       }
     } catch (e) {
-      Alert.alert('Konum alınamadı', e instanceof Error ? e.message : String(e));
+      Alert.alert('Konum doğrulanamadı', e instanceof Error ? e.message : String(e));
     } finally {
       setBusyVenue(null);
     }
@@ -294,46 +301,71 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
 
   // ------------------------------------------------------------ durum ekranları
 
-  if (denied) {
+  if (!coords) {
+    const st = gps.status;
+    const problem = st === 'denied' || st === 'blocked' || st === 'disabled' || st === 'error';
+    if (!problem) {
+      return (
+        <View style={styles.center}>
+          <Backdrop />
+          <ActivityIndicator size="large" color={c.accent} />
+          <Text style={[styles.centerText, { marginTop: 16 }]}>Konumun alınıyor…</Text>
+        </View>
+      );
+    }
+    const info =
+      st === 'disabled'
+        ? {
+            title: 'Konum servisleri kapalı',
+            text: 'Yakınındaki kafeleri göstermek için telefonunun konum servislerini aç, sonra buraya dön.',
+          }
+        : st === 'blocked'
+          ? {
+              title: 'Konum izni kapalı',
+              text: 'Konum iznini Ayarlar’dan açman gerekiyor. Konumun sadece check-in’i doğrulamak için kullanılır, başkalarına gösterilmez.',
+            }
+          : st === 'error'
+            ? { title: 'Konum alınamadı', text: 'GPS şu an yanıt vermiyor. Açık bir alanda tekrar dene.' }
+            : {
+                title: 'Konum iznine ihtiyacımız var',
+                text: 'Yakınındaki kafeleri göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun başkalarına gösterilmez.',
+              };
     return (
       <View style={styles.center}>
         <Backdrop />
         <FadeIn scale={0.9} y={20}>
           <View style={styles.bigIconWrap}>
             <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bigIcon}>
-              <Ionicons name="location" size={40} color="#fff" />
+              <Ionicons name={st === 'disabled' ? 'navigate-circle' : 'location'} size={40} color="#fff" />
             </LinearGradient>
           </View>
         </FadeIn>
         <FadeIn delay={120}>
-          <Text style={styles.centerTitle}>Konum iznine ihtiyacımız var</Text>
-          <Text style={styles.centerText}>
-            Yakınındaki kafeleri göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun
-            başkalarına gösterilmez.
-          </Text>
+          <Text style={styles.centerTitle}>{info.title}</Text>
+          <Text style={styles.centerText}>{info.text}</Text>
         </FadeIn>
         <FadeIn delay={220} style={{ alignSelf: 'stretch' }}>
-          <AnimatedButton title="İzin ver" onPress={load} style={{ marginTop: 22 }} />
           <AnimatedButton
-            title="Ayarları aç"
-            variant="ghost"
-            onPress={() => Linking.openSettings()}
-            style={{ marginTop: 10 }}
+            title={st === 'denied' ? 'İzin ver' : 'Tekrar dene'}
+            onPress={() => gps.start()}
+            style={{ marginTop: 22 }}
           />
+          {st === 'blocked' || st === 'disabled' ? (
+            <AnimatedButton
+              title="Ayarları aç"
+              variant="ghost"
+              onPress={() => Linking.openSettings()}
+              style={{ marginTop: 10 }}
+            />
+          ) : null}
         </FadeIn>
       </View>
     );
   }
 
-  if (loading || !coords) {
-    return (
-      <View style={styles.center}>
-        <Backdrop />
-        <ActivityIndicator size="large" color={c.accent} />
-        <Text style={[styles.centerText, { marginTop: 16 }]}>Konumun alınıyor…</Text>
-      </View>
-    );
-  }
+  const accuracy = gps.fix?.accuracy ?? 999;
+  const quality = qualityOf(accuracy);
+  const gpsColor = quality === 'good' ? c.success : quality === 'ok' ? c.warn : c.danger;
 
   const region = {
     latitude: coords.lat - 0.0011,
@@ -369,8 +401,9 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       {/* Üst çubuk */}
       <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
         <View style={styles.brandChip}>
-          <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandDot} />
+          <View style={[styles.brandDot, { backgroundColor: gpsColor }]} />
           <Text style={styles.brandText}>{BRAND}</Text>
+          <Text style={styles.gpsText}>±{Math.round(gps.fix?.accuracy ?? 0)} m</Text>
         </View>
         <View style={styles.topButtons}>
           {isAdmin ? (
@@ -378,7 +411,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
               <Ionicons name="add" size={22} color={c.text} />
             </Pressable>
           ) : null}
-          <Pressable style={styles.roundBtn} onPress={load} hitSlop={6}>
+          <Pressable style={styles.roundBtn} onPress={reload} hitSlop={6}>
             <Ionicons name="refresh" size={19} color={c.text} />
           </Pressable>
           <Pressable style={styles.roundBtn} onPress={recenter} hitSlop={6}>
@@ -416,7 +449,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
                 style={{ marginTop: 14 }}
               />
             ) : (
-              <AnimatedButton title="Yenile" variant="soft" icon="refresh" onPress={load} style={{ marginTop: 14 }} />
+              <AnimatedButton title="Yenile" variant="soft" icon="refresh" onPress={reload} style={{ marginTop: 14 }} />
             )}
           </View>
         ) : (
@@ -438,6 +471,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
                 selected={item.id === selectedId}
                 here={active?.venue_id === item.id}
                 busy={busyVenue === item.id}
+                distance={distanceMeters(coords.lat, coords.lng, item.lat, item.lng)}
+                accuracy={accuracy}
                 onSelect={() => onMarkerPress(item)}
                 onCheckIn={() => checkIn(item)}
                 onOpenVenue={onOpenVenue}
@@ -537,6 +572,7 @@ const makeStyles = (c: Palette) =>
     },
     brandDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
     brandText: { color: c.text, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
+    gpsText: { color: c.muted, fontSize: 12, fontWeight: '600', marginLeft: 8 },
     topButtons: { flexDirection: 'row' },
     roundBtn: {
       width: 42,
@@ -573,7 +609,7 @@ const makeStyles = (c: Palette) =>
     card: {
       backgroundColor: c.glass,
       borderRadius: 26,
-      padding: 16,
+      padding: 14,
       borderWidth: 1.5,
       borderColor: c.border,
       shadowColor: c.shadow,
@@ -595,7 +631,7 @@ const makeStyles = (c: Palette) =>
     },
     cardName: { color: c.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
     cardMeta: { color: c.muted, fontSize: 13, marginTop: 3, lineHeight: 19 },
-    liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 12 },
+    liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10 },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     liveCount: { color: c.text, fontSize: 14, fontWeight: '600' },
   });

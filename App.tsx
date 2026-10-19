@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import AnimatedButton from './components/AnimatedButton';
@@ -7,6 +7,7 @@ import Backdrop from './components/Backdrop';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
 import { FadeIn, Pane } from './components/Transition';
+import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
@@ -22,7 +23,55 @@ import ProfileScreen from './screens/ProfileScreen';
 
 type Entry = 'welcome' | 'auth';
 
+// Uygulama açıkken konumu sunucuya bildirir (dakikada bir ve ön plana dönünce).
+// Sunucu kafeden uzaklaştığını görürse check-in'i bitirir; 30 dk haber gelmezse kişi görünmez olur.
+function LocationHeartbeat({ active, onEnded }: { active: ActiveCheckin | null; onEnded: () => void }) {
+  const gps = useGps();
+  const fixRef = useRef(gps.fix);
+  fixRef.current = gps.fix;
+  const hasFix = Boolean(gps.fix);
+
+  useEffect(() => {
+    if (!active || !hasFix) return;
+    let stopped = false;
+    const ping = async () => {
+      const f = fixRef.current;
+      if (!f) return;
+      const { data, error } = await supabase.rpc('ping_location', {
+        p_lat: f.lat,
+        p_lng: f.lng,
+        p_accuracy: f.accuracy,
+      });
+      if (!error && data === false && !stopped) {
+        stopped = true;
+        Alert.alert('Check-out yapıldı', 'Kafeden uzaklaştığın için check-in sona erdi, artık kimse seni görmüyor.');
+        onEnded();
+      }
+    };
+    ping();
+    const t = setInterval(ping, 60_000);
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') ping();
+    });
+    return () => {
+      stopped = true;
+      clearInterval(t);
+      sub.remove();
+    };
+  }, [active?.checkin_id, hasFix]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+}
+
 export default function App() {
+  return (
+    <LocationProvider>
+      <AppShell />
+    </LocationProvider>
+  );
+}
+
+function AppShell() {
   const c = useColors();
   const styles = useStyles(makeStyles);
 
@@ -224,6 +273,8 @@ export default function App() {
   return (
     <View style={styles.root}>
       <StatusBar style={barStyle} />
+
+      <LocationHeartbeat active={active} onEnded={loadActive} />
 
       {/* Harita hep açık kalır (konum ve harita yeniden yüklenmesin diye sadece gizlenir) */}
       <Pane visible={tab === 'map'} keepMounted>

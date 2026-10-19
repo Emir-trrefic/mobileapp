@@ -22,7 +22,7 @@ export type Palette = {
   accent: string;
   accentLight: string; // metin/bağlantı olarak kullanılan vurgu (her temada okunur)
   accentSoft: string;
-  pink: string;
+  pink: string; // ikinci vurgu (kobalt): bildirim rozeti, gelen istek
   pinkSoft: string;
   // durum
   success: string;
@@ -36,69 +36,69 @@ export type Palette = {
   shadow: string;
   shadowOpacity: number;
   // gradyanlar
-  gradient: Grad2; // marka gradyanı: mor → mercan pembe
+  gradient: Grad2; // marka gradyanı: lacivert tonları
   hero: Grad3; // karşılama zemini
   blobs: Grad2; // süzülen renk lekeleri
 };
 
-// Koyu tema: saf siyah yok, indigo tonlu antrasit. Vurgu rengi biraz yumuşatıldı.
+// Koyu tema: lacivert tonlu siyah, beyaz metin. Tek vurgu: açık gök mavisi/lacivert tonları.
 export const darkColors: Palette = {
   scheme: 'dark',
-  bg: '#0F0E1B',
-  card: '#181730',
-  cardFocus: '#1F1E3C',
-  card2: '#232244',
-  border: '#2E2D50',
-  line: 'rgba(255,255,255,0.045)',
-  text: '#F4F3FF',
-  muted: '#A3A2C6',
-  accent: '#8B6CFF',
-  accentLight: '#B3A1FF',
-  accentSoft: 'rgba(139,108,255,0.22)',
-  pink: '#FF6B8B',
-  pinkSoft: 'rgba(255,107,139,0.18)',
+  bg: '#070B16',
+  card: '#0E1527',
+  cardFocus: '#121B33',
+  card2: '#17223D',
+  border: '#222F4F',
+  line: 'rgba(255,255,255,0.04)',
+  text: '#F4F6FB',
+  muted: '#93A0BF',
+  accent: '#9DB4FF',
+  accentLight: '#B7C8FF',
+  accentSoft: 'rgba(157,180,255,0.16)',
+  pink: '#3D6BFF', // ikinci vurgu: kobalt (bildirim, istek)
+  pinkSoft: 'rgba(61,107,255,0.20)',
   success: '#3DD6A0',
   successSoft: 'rgba(61,214,160,0.16)',
   warn: '#FBBF24',
   danger: '#FF7A8A',
   dangerSoft: 'rgba(255,122,138,0.15)',
-  glass: 'rgba(24,23,48,0.96)',
-  scrim: 'rgba(11,11,22,0.62)',
+  glass: 'rgba(14,21,39,0.96)',
+  scrim: 'rgba(4,7,16,0.62)',
   shadow: '#000000',
-  shadowOpacity: 0.45,
-  gradient: ['#8B6CFF', '#FF6B8B'],
-  hero: ['#0F0E1B', '#171233', '#2A1250'],
-  blobs: ['rgba(139,108,255,0.34)', 'rgba(255,107,139,0.04)'],
+  shadowOpacity: 0.5,
+  gradient: ['#2447A8', '#0F2260'],
+  hero: ['#070B16', '#0A1230', '#0F1B4A'],
+  blobs: ['rgba(61,107,255,0.28)', 'rgba(157,180,255,0.03)'],
 };
 
-// Açık tema: lavanta tonlu beyaz, koyu indigo metin, daha doygun vurgu.
+// Açık tema: beyaz zemin, siyaha yakın lacivert metin, lacivert vurgu.
 export const lightColors: Palette = {
   scheme: 'light',
-  bg: '#F6F4FC',
+  bg: '#F4F6FA',
   card: '#FFFFFF',
   cardFocus: '#FFFFFF',
-  card2: '#EDEAF8',
-  border: '#E0DCF0',
-  line: 'rgba(60,40,140,0.06)',
-  text: '#16142B',
-  muted: '#625F86',
-  accent: '#6A47F5',
-  accentLight: '#5A3BE0',
-  accentSoft: 'rgba(106,71,245,0.12)',
-  pink: '#F0407A',
-  pinkSoft: 'rgba(240,64,122,0.12)',
+  card2: '#EBEFF6',
+  border: '#DCE2EE',
+  line: 'rgba(10,17,40,0.06)',
+  text: '#0A1128',
+  muted: '#5A667F',
+  accent: '#0B1F4B',
+  accentLight: '#1B3A8C',
+  accentSoft: 'rgba(11,31,75,0.08)',
+  pink: '#2F5BEA',
+  pinkSoft: 'rgba(47,91,234,0.10)',
   success: '#0E9F6E',
   successSoft: 'rgba(14,159,110,0.12)',
-  warn: '#C77700',
-  danger: '#DC3F57',
-  dangerSoft: 'rgba(220,63,87,0.10)',
+  warn: '#B76E00',
+  danger: '#D6334C',
+  dangerSoft: 'rgba(214,51,76,0.10)',
   glass: 'rgba(255,255,255,0.96)',
-  scrim: 'rgba(11,11,22,0.55)',
-  shadow: '#2A1F6B',
-  shadowOpacity: 0.16,
-  gradient: ['#6A47F5', '#F0407A'],
-  hero: ['#F6F4FC', '#ECE6FF', '#FFE4EE'],
-  blobs: ['rgba(106,71,245,0.24)', 'rgba(240,64,122,0.05)'],
+  scrim: 'rgba(4,7,16,0.55)',
+  shadow: '#0A1A47',
+  shadowOpacity: 0.14,
+  gradient: ['#1B3A8C', '#0A1A47'],
+  hero: ['#FFFFFF', '#EEF2FB', '#D9E2F6'],
+  blobs: ['rgba(27,58,140,0.16)', 'rgba(47,91,234,0.03)'],
 };
 
 export const photoShade = ['rgba(8,8,20,0)', 'rgba(8,8,20,0.9)'] as const;

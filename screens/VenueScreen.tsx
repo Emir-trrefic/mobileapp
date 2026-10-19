@@ -10,7 +10,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
@@ -18,7 +17,6 @@ import PersonCard from '../components/PersonCard';
 import PersonSheet from '../components/PersonSheet';
 import { FadeIn } from '../components/Transition';
 import { success, tap, warning } from '../lib/haptics';
-import { distanceMeters } from '../lib/geo';
 import { useInsets } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { supabase } from '../lib/supabase';
@@ -38,7 +36,6 @@ type Props = {
 };
 
 const POLL_MS = 10_000;
-const LEAVE_FACTOR = 2; // yarıçapın bu kadar katı dışına çıkarsan otomatik check-out
 const PAD = 16;
 const GAP = 12;
 
@@ -80,14 +77,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     onIncomingChanged();
     setNow(Date.now());
 
-    // Mekandan uzaklaştıysan otomatik check-out (uygulama açıkken çalışır).
-    try {
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const d = distanceMeters(pos.coords.latitude, pos.coords.longitude, active.lat, active.lng);
-      if (d > active.radius_m * LEAVE_FACTOR) checkOut(true);
-    } catch {
-      // konum alınamadıysa sessizce geç
-    }
+    // Kafeden uzaklaşma (otomatik check-out) App'teki konum bekçisi tarafından sunucuyla birlikte denetlenir.
 
     // Süre dolduysa da çık.
     if (new Date(active.expires_at).getTime() <= Date.now()) checkOut(true);
@@ -177,12 +167,26 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   const header = (
     <View>
       <FadeIn y={-8}>
-        <Pressable style={styles.backRow} onPress={onClose} hitSlop={10}>
-          <View style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={c.text} />
-          </View>
-          <Text style={styles.backText}>Harita</Text>
-        </Pressable>
+        <View style={styles.topRow}>
+          <Pressable style={styles.backRow} onPress={onClose} hitSlop={10}>
+            <View style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={c.text} />
+            </View>
+            <Text style={styles.backText}>Harita</Text>
+          </Pressable>
+          <Pressable
+              style={styles.leaveBtn}
+              onPress={() =>
+                Alert.alert('Check-out yapılsın mı?', 'Kafeden ayrılırsan artık kimse seni göremez.', [
+                  { text: 'Vazgeç', style: 'cancel' },
+                  { text: 'Check-out', style: 'destructive', onPress: () => checkOut(false) },
+                ])
+              }
+            >
+              <Ionicons name="log-out-outline" size={18} color={c.danger} />
+              <Text style={styles.leaveText}>Ayrıl</Text>
+            </Pressable>
+        </View>
         <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
             <View style={styles.livePill}>
@@ -196,18 +200,6 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
               {people.length > 0 ? `Şu an ${people.length} kişi burada` : 'Şu an burada başka kimse yok'}
             </Text>
           </View>
-          <Pressable
-            style={styles.leaveBtn}
-            onPress={() =>
-              Alert.alert('Check-out yapılsın mı?', 'Kafeden ayrılırsan artık kimse seni göremez.', [
-                { text: 'Vazgeç', style: 'cancel' },
-                { text: 'Check-out', style: 'destructive', onPress: () => checkOut(false) },
-              ])
-            }
-          >
-            <Ionicons name="log-out-outline" size={18} color={c.danger} />
-            <Text style={styles.leaveText}>Ayrıl</Text>
-          </Pressable>
         </View>
       </FadeIn>
 
@@ -308,7 +300,8 @@ const makeStyles = (c: Palette) =>
     emptyTitle: { color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center', letterSpacing: -0.4 },
     emptyText: { color: c.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
 
-    backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, alignSelf: 'flex-start' },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    backRow: { flexDirection: 'row', alignItems: 'center' },
     backBtn: {
       width: 40,
       height: 40,

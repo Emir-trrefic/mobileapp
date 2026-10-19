@@ -12,12 +12,12 @@ export function useInsets() {
   return { top: StatusBar.currentHeight ?? 24, bottom: 0 };
 }
 
-export const TAB_H = 64;
+export const TAB_H = 60;
 
 // Alt sekme çubuğunun ekranın altından uzaklığı.
 export function useTabBarOffset() {
   const { bottom } = useInsets();
-  return bottom > 0 ? bottom - 10 : 14;
+  return bottom > 0 ? bottom - 14 : 12;
 }
 
 // Ekranların içeriği sekme çubuğunun altında kalmasın diye ayırması gereken boşluk.
