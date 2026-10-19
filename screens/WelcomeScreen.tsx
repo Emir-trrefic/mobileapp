@@ -78,7 +78,7 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
         <Animated.Text style={[styles.legal, legal]}>
           Devam ederek 18 yaşından büyük olduğunu ve kullanım koşullarını kabul ettiğini onaylarsın.
         </Animated.Text>
-        <Text style={styles.version}>Sürüm 0.5 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        <Text style={styles.version}>Sürüm 0.6 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );

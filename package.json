@@ -11,18 +11,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "*",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.45.0",
-    "expo": "*",
-    "expo-location": "*",
-    "expo-status-bar": "*",
-    "react": "*",
-    "react-native": "*",
-    "react-native-maps": "*",
+    "expo": "~57.0.30",
+    "expo-haptics": "~57.0.3",
+    "expo-image-picker": "~57.0.20",
+    "expo-linear-gradient": "~57.0.2",
+    "expo-location": "~57.0.21",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-maps": "1.27.2",
     "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {
-    "@types/react": "*",
-    "typescript": "*"
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
   }
 }

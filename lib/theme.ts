@@ -114,7 +114,7 @@ const listeners = new Set<() => void>();
 
 function applyPref(p: ThemePref) {
   try {
-    Appearance.setColorScheme(p === 'system' ? null : p);
+    Appearance.setColorScheme(p === 'system' ? 'unspecified' : p);
   } catch {
     // eski sürümlerde yok sayılır
   }

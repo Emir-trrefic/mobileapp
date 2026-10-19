@@ -336,7 +336,7 @@ function AppShell() {
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    fill: { ...StyleSheet.absoluteFillObject },
+    fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, backgroundColor: c.bg },
     msg: { color: c.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
     errTitle: { color: c.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
