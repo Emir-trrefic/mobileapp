@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
@@ -37,155 +38,89 @@ function useFloat(period: number) {
 
 // ---------------------------------------------------------------- hero parçaları
 
-// Merkezden dışa yayılan radar halkası.
-function Pulse({ size, delay }: { size: number; delay: number }) {
+// Sabit, ince halkalar. Sadece çok yavaş "nefes alır"; dönme ya da yayılma yok.
+function Rings({ cx, cy, radii }: { cx: number; cy: number; radii: number[] }) {
+  const c = useColors();
+  const breathe = useFloat(5200);
+  const alphas = [0.5, 0.3, 0.16];
+  return (
+    <>
+      {radii.map((r, i) => (
+        <Animated.View
+          key={r}
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: cx - r,
+            top: cy - r,
+            width: r * 2,
+            height: r * 2,
+            borderRadius: r,
+            borderWidth: StyleSheet.hairlineWidth * 1.5,
+            borderColor: c.accent,
+            opacity: alphas[i] ?? 0.1,
+            transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1 + 0.018 * (i + 1)] }) }],
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Tek, çok hafif dalga: merkezden yavaşça açılıp kaybolur.
+function Ripple({ cx, cy, size }: { cx: number; cy: number; size: number }) {
   const c = useColors();
   const p = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    const t = setTimeout(() => {
-      loop = Animated.loop(
-        Animated.timing(p, { toValue: 1, duration: 3600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      );
-      loop.start();
-    }, delay);
-    return () => {
-      clearTimeout(t);
-      loop?.stop();
-    };
-  }, [p, delay]);
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: -size / 2,
-        top: -size / 2,
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: 1.5,
-        borderColor: c.accent,
-        opacity: p.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
-        transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1.15] }) }],
-      }}
-    />
-  );
-}
-
-// Aynı mekandaki, görünür kişi.
-function Bubble({
-  name,
-  meta,
-  color,
-  x,
-  y,
-  delay,
-  period,
-}: {
-  name: string;
-  meta: string;
-  color: string;
-  x: number;
-  y: number;
-  delay: number;
-  period: number;
-}) {
-  const styles = useStyles(makeStyles);
-  const pop = useRef(new Animated.Value(0)).current;
-  const float = useFloat(period);
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.delay(delay),
-      Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 9, bounciness: 14 }),
-    ]).start();
-  }, [pop, delay]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.bubbleWrap,
-        {
-          left: x - 40,
-          top: y - 26,
-          opacity: pop,
-          transform: [{ scale: pop }, { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
-        },
-      ]}
-    >
-      <View style={[styles.bubble, { backgroundColor: color }]}>
-        <Text style={styles.bubbleText}>{name[0]}</Text>
-      </View>
-      <View style={styles.bubbleChip}>
-        <Text style={styles.bubbleChipText}>
-          {name} · {meta}
-        </Text>
-      </View>
-    </Animated.View>
-  );
-}
-
-// Mekanın dışındaki, görünmeyen kişi (soluk nokta).
-function Ghost({ x, y, size, delay }: { x: number; y: number; size: number; delay: number }) {
-  const c = useColors();
-  const fade = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(fade, { toValue: 1, duration: 800, delay, useNativeDriver: true }).start();
-  }, [fade, delay]);
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: x - size / 2,
-        top: y - size / 2,
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: c.muted,
-        opacity: fade.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }),
-      }}
-    />
-  );
-}
-
-// Tüm ekranda yavaşça kayan soyut sokak ızgarası.
-function Streets() {
-  const c = useColors();
-  const { width, height } = useWindowDimensions();
-  const drift = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
     const loop = Animated.loop(
-      Animated.timing(drift, { toValue: 1, duration: 18000, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(p, { toValue: 1, duration: 6500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     );
     loop.start();
     return () => loop.stop();
-  }, [drift]);
-
-  const W = width * 1.8;
-  const H = height * 1.5;
-  const rows = Math.ceil(H / 62);
-  const cols = Math.ceil(W / 74);
-
+  }, [p]);
   return (
     <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: -width * 0.4,
-        top: -height * 0.25,
-        width: W,
-        height: H,
-        transform: [{ rotate: '-18deg' }, { translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -74] }) }],
+        left: cx - size / 2,
+        top: cy - size / 2,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: c.accentSoft,
+        opacity: p.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+        transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
       }}
+    />
+  );
+}
+
+// Halkalarda duran, o an aynı kafede olan bir kişi.
+function Person({ initial, x, y, tone, delay, period }: { initial: string; x: number; y: number; tone: string; delay: number; period: number }) {
+  const styles = useStyles(makeStyles);
+  const pop = useRef(new Animated.Value(0)).current;
+  const float = useFloat(period);
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 8, bounciness: 6 }),
+    ]).start();
+  }, [pop, delay]);
+  return (
+    <Animated.View
+      style={[
+        styles.person,
+        {
+          left: x - 21,
+          top: y - 21,
+          backgroundColor: tone,
+          opacity: pop,
+          transform: [{ scale: pop }, { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }],
+        },
+      ]}
     >
-      {Array.from({ length: rows }).map((_, i) => (
-        <View key={`r${i}`} style={{ position: 'absolute', top: i * 62, left: 0, right: 0, height: 1, backgroundColor: c.line }} />
-      ))}
-      {Array.from({ length: cols + 2 }).map((_, i) => (
-        <View key={`c${i}`} style={{ position: 'absolute', left: i * 74, top: 0, bottom: 0, width: 1, backgroundColor: c.line }} />
-      ))}
+      <Text style={styles.personText}>{initial}</Text>
     </Animated.View>
   );
 }
@@ -193,6 +128,14 @@ function Streets() {
 // ---------------------------------------------------------------- ekran
 
 type Props = { onStart: () => void; onLogin: () => void };
+
+const PEOPLE = [
+  { initial: 'E', ring: 1, angle: -128, tone: '#1E3A8A' },
+  { initial: 'C', ring: 1.42, angle: -34, tone: '#3558C8' },
+  { initial: 'Z', ring: 1, angle: 40, tone: '#475A85' },
+  { initial: 'M', ring: 1.42, angle: 152, tone: '#0F2A66' },
+  { initial: 'D', ring: 0.62, angle: -78, tone: '#2B4A9E' },
+];
 
 export default function WelcomeScreen({ onStart, onLogin }: Props) {
   const c = useColors();
@@ -202,20 +145,20 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
 
   const heroH = Math.min(height * 0.47, 440);
   const cx = width / 2;
-  const cy = heroH / 2;
-  const R = Math.min(width * 0.33, 140);
+  const cy = heroH / 2 - 8;
+  const R = Math.min(width * 0.3, 120);
 
   const brand = useRise(100);
+  const chip = useRise(900);
   const title = useRise(1000);
   const sub = useRise(1200);
   const cta = useRise(1400);
 
-  const centerPulse = useFloat(1200);
+  const corePulse = useFloat(3000);
 
   return (
     <View style={styles.root}>
       <LinearGradient colors={c.hero} style={StyleSheet.absoluteFill} />
-      <Streets />
       <Backdrop />
 
       {/* Üst: marka */}
@@ -224,58 +167,38 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
         <Text style={styles.brandText}>{BRAND}</Text>
       </Animated.View>
 
-      {/* Hero: radar + insanlar */}
+      {/* Hero: ince halkalar, ortada kafe, halkalarda o an orada olan kişiler */}
       <View style={{ position: 'absolute', top: insets.top + 36, left: 0, right: 0, height: heroH }}>
-        {/* Mekan sınırı */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: cx - R,
-            top: cy - R,
-            width: R * 2,
-            height: R * 2,
-            borderRadius: R,
-            borderWidth: 1.5,
-            borderColor: c.accent,
-            borderStyle: 'dashed',
-            opacity: 0.55,
-            backgroundColor: c.accentSoft,
-          }}
-        />
+        <Ripple cx={cx} cy={cy} size={R * 2.8} />
+        <Rings cx={cx} cy={cy} radii={[R * 0.62, R, R * 1.42]} />
 
-        <View style={{ position: 'absolute', left: cx, top: cy }}>
-          <Pulse size={R * 2} delay={0} />
-          <Pulse size={R * 2} delay={1200} />
-          <Pulse size={R * 2} delay={2400} />
-        </View>
+        {PEOPLE.map((p, i) => (
+          <Person
+            key={p.initial}
+            initial={p.initial}
+            tone={p.tone}
+            x={cx + Math.cos((p.angle * Math.PI) / 180) * R * p.ring}
+            y={cy + Math.sin((p.angle * Math.PI) / 180) * R * p.ring}
+            delay={500 + i * 170}
+            period={3200 + i * 420}
+          />
+        ))}
 
-        {/* Dışarıdaki, görünmeyen kişiler */}
-        <Ghost x={cx - R * 1.32} y={cy - R * 0.25} size={12} delay={900} />
-        <Ghost x={cx + R * 1.36} y={cy + R * 0.35} size={16} delay={1000} />
-        <Ghost x={cx + R * 0.15} y={cy - R * 1.3} size={10} delay={1100} />
-        <Ghost x={cx - R * 0.35} y={cy + R * 1.3} size={14} delay={1200} />
-
-        {/* Mekandaki, görünen kişiler */}
-        <Bubble name="Elif" meta="12 m" color="#1E3A8A" x={cx - R * 0.62} y={cy - R * 0.5} delay={500} period={2200} />
-        <Bubble name="Can" meta="8 m" color="#3558C8" x={cx + R * 0.66} y={cy - R * 0.32} delay={700} period={2600} />
-        <Bubble name="Zeynep" meta="20 m" color="#475A85" x={cx - R * 0.5} y={cy + R * 0.62} delay={900} period={2400} />
-        <Bubble name="Mert" meta="15 m" color="#0F2A66" x={cx + R * 0.46} y={cy + R * 0.66} delay={1100} period={2800} />
-
-        {/* Merkez: sen */}
         <Animated.View
           style={[
-            styles.me,
-            {
-              left: cx - 15,
-              top: cy - 15,
-              transform: [{ scale: centerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }],
-            },
+            styles.core,
+            { left: cx - 44, top: cy - 44, transform: [{ scale: corePulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }] },
           ]}
         >
-          <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.meDot} />
+          <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.coreDisc}>
+            <Ionicons name="cafe" size={28} color="#fff" />
+          </LinearGradient>
         </Animated.View>
-        <Text style={[styles.meLabel, { left: cx - 20, top: cy + 22 }]}>Sen</Text>
+
+        <Animated.View style={[styles.liveChip, { top: cy + R * 1.42 + 22 }, chip]}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>Şu an 12 kişi burada</Text>
+        </Animated.View>
       </View>
 
       {/* Alt: başlık + butonlar */}
@@ -305,46 +228,55 @@ const makeStyles = (c: Palette) =>
     brandRow: { position: 'absolute', left: 24, flexDirection: 'row', alignItems: 'center', zIndex: 5 },
     brandDot: { width: 14, height: 14, borderRadius: 7, marginRight: 8 },
     brandText: { color: c.text, fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
-    bubbleWrap: { position: 'absolute', width: 80, alignItems: 'center' },
-    bubble: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
+    person: {
+      position: 'absolute',
+      width: 42,
+      height: 42,
+      borderRadius: 21,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 2.5,
-      borderColor: c.card,
+      borderWidth: 3,
+      borderColor: c.bg,
       shadowColor: c.shadow,
       shadowOpacity: c.shadowOpacity,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
     },
-    bubbleText: { color: '#fff', fontSize: 19, fontWeight: '800' },
-    bubbleChip: {
-      marginTop: 5,
-      backgroundColor: c.glass,
-      borderRadius: 10,
-      paddingVertical: 3,
-      paddingHorizontal: 7,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.border,
-    },
-    bubbleChipText: { color: c.text, fontSize: 10.5, fontWeight: '600' },
-    me: {
+    personText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+    core: {
       position: 'absolute',
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: c.card,
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: c.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coreDisc: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: c.shadow,
       shadowOpacity: c.shadowOpacity,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
     },
-    meDot: { width: 20, height: 20, borderRadius: 10 },
-    meLabel: { position: 'absolute', width: 40, textAlign: 'center', color: c.muted, fontSize: 11, fontWeight: '700' },
+    liveChip: {
+      position: 'absolute',
+      alignSelf: 'center',
+      height: 34,
+      paddingHorizontal: 16,
+      borderRadius: 17,
+      backgroundColor: c.glass,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.success, marginRight: 8 },
+    liveText: { color: c.text, fontSize: 13, fontWeight: '600' },
     bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24 },
     title: { color: c.text, fontSize: 36, lineHeight: 41, fontWeight: '800', letterSpacing: -0.9 },
     sub: { color: c.muted, fontSize: 16, lineHeight: 23, marginTop: 12 },
