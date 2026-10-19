@@ -8,12 +8,12 @@ import { TAB_H, useTabBarOffset } from '../lib/layout';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
-export type TabKey = 'map' | 'venue' | 'profile';
+export type TabKey = 'map' | 'messages' | 'profile';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const TABS: { key: TabKey; label: string; on: IconName; off: IconName }[] = [
   { key: 'map', label: 'Harita', on: 'map', off: 'map-outline' },
-  { key: 'venue', label: 'Burada', on: 'people', off: 'people-outline' },
+  { key: 'messages', label: 'Mesajlar', on: 'chatbubbles', off: 'chatbubbles-outline' },
   { key: 'profile', label: 'Profil', on: 'person', off: 'person-outline' },
 ];
 
@@ -23,8 +23,8 @@ const PAD = 8; // çubuğun iç boşluğu
 type Props = {
   tab: TabKey;
   onChange: (t: TabKey) => void;
-  badge?: number; // bekleyen istek sayısı
-  live?: boolean; // bir mekanda check-in'li
+  badge?: number; // yanıt bekleyen gelen istek sayısı (Mesajlar)
+  live?: boolean; // bir kafede check-in'li (Harita)
 };
 
 function Badge({ count }: { count: number }) {
@@ -119,8 +119,8 @@ export default function TabBar({ tab, onChange, badge, live }: Props) {
             if (tab !== t.key) tap();
             onChange(t.key);
           }}
-          badge={t.key === 'venue' ? badge : undefined}
-          live={t.key === 'venue' ? live : undefined}
+          badge={t.key === 'messages' ? badge : undefined}
+          live={t.key === 'map' ? live : undefined}
         />
       ))}
     </View>

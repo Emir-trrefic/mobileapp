@@ -11,12 +11,13 @@ import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS } from './lib/types';
-import type { ActiveCheckin, IncomingRequest, Profile } from './lib/types';
+import type { ActiveCheckin, Connection, IncomingRequest, Profile } from './lib/types';
 import WelcomeScreen from './screens/WelcomeScreen';
 import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import MapScreen from './screens/MapScreen';
 import VenueScreen from './screens/VenueScreen';
+import MessagesScreen from './screens/MessagesScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 type Entry = 'welcome' | 'auth';
@@ -31,7 +32,8 @@ export default function App() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveCheckin | null>(null);
-  const [incomingAll, setIncomingAll] = useState<IncomingRequest[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [venueOpen, setVenueOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>('map');
   const [entry, setEntry] = useState<Entry>('welcome');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
@@ -74,35 +76,64 @@ export default function App() {
       setProfileLoaded(false);
       setLoadError(null);
       setActive(null);
-      setIncomingAll([]);
+      setConnections([]);
+      setVenueOpen(false);
       setTab('map');
       setEntry('welcome');
     }
   }, [session, loadState]);
 
-  const loadIncoming = useCallback(async () => {
-    const { data } = await supabase.rpc('my_incoming_requests');
-    setIncomingAll((data ?? []) as IncomingRequest[]);
+  const loadConnections = useCallback(async () => {
+    const { data } = await supabase.rpc('my_connections');
+    setConnections((data ?? []) as Connection[]);
   }, []);
 
-  // Gelen istekler (sekme çubuğundaki rozet için) 8 sn'de bir kontrol edilir.
+  // Gelen / giden istekler (Mesajlar sekmesi ve rozeti) 8 sn'de bir kontrol edilir.
   useEffect(() => {
-    if (!session || !profile?.birth_year || !active) {
-      setIncomingAll([]);
+    if (!session || !profile?.birth_year) {
+      setConnections([]);
       return;
     }
-    loadIncoming();
-    const t = setInterval(loadIncoming, 8000);
+    loadConnections();
+    const t = setInterval(loadConnections, 8000);
     return () => clearInterval(t);
-  }, [session, profile?.birth_year, active?.venue_id, loadIncoming]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, profile?.birth_year, loadConnections]);
 
-  const incoming = useMemo(
-    () => (active ? incomingAll.filter((r) => r.venue_id === active.venue_id) : []),
-    [incomingAll, active],
+  // Yanıt bekleyen gelen istekler (tüm kafeler).
+  const pendingIncoming = useMemo(
+    () => connections.filter((x) => x.direction === 'received' && x.status === 'pending'),
+    [connections],
   );
 
+  // Bulunduğum kafedeki gelen istekler (kafe ekranında gösterilir).
+  const incoming = useMemo<IncomingRequest[]>(
+    () =>
+      active
+        ? pendingIncoming
+            .filter((x) => x.venue_id === active.venue_id)
+            .map((x) => ({
+              request_id: x.request_id,
+              from_user: x.other_id,
+              display_name: x.display_name,
+              bio: x.bio,
+              avatar_url: x.avatar_url,
+              birth_year: x.birth_year,
+              job: x.job,
+              interests: x.interests,
+              venue_id: x.venue_id,
+              created_at: x.created_at,
+            }))
+        : [],
+    [pendingIncoming, active],
+  );
+
+  // Check-in kalmadıysa kafe ekranı kapanır.
+  useEffect(() => {
+    if (!active) setVenueOpen(false);
+  }, [active]);
+
   // Durum çubuğu: koyu temada açık yazı, açık temada koyu yazı. Profil sekmesinde üstte fotoğraf olduğu için açık yazı.
-  const barStyle = c.scheme === 'dark' || (session && tab === 'profile') ? 'light' : 'dark';
+  const barStyle = c.scheme === 'dark' || (session && tab === 'profile' && !venueOpen) ? 'light' : 'dark';
 
   // ------------------------------------------------------------ ekranlar
 
@@ -200,24 +231,18 @@ export default function App() {
           active={active}
           onCheckedIn={async () => {
             await loadActive();
-            setTab('venue');
+            setVenueOpen(true);
           }}
-          onOpenVenue={() => setTab('venue')}
+          onOpenVenue={() => setVenueOpen(true)}
         />
       </Pane>
 
-      <Pane visible={tab === 'venue'}>
-        <VenueScreen
-          active={active}
-          userId={session.user.id}
-          myInterests={profile.interests}
-          incoming={incoming}
-          onIncomingChanged={loadIncoming}
-          onGoMap={() => setTab('map')}
-          onLeft={() => {
-            setActive(null);
-            setTab('map');
-          }}
+      <Pane visible={tab === 'messages'}>
+        <MessagesScreen
+          connections={connections}
+          profile={profile}
+          onChanged={loadConnections}
+          onGoProfile={() => setTab('profile')}
         />
       </Pane>
 
@@ -225,7 +250,26 @@ export default function App() {
         <ProfileScreen profile={profile} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
       </Pane>
 
-      <TabBar tab={tab} onChange={setTab} badge={incoming.length} live={Boolean(active)} />
+      {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}
+      {venueOpen && active ? (
+        <Pane visible>
+          <VenueScreen
+            active={active}
+            userId={session.user.id}
+            myInterests={profile.interests}
+            incoming={incoming}
+            onIncomingChanged={loadConnections}
+            onClose={() => setVenueOpen(false)}
+            onLeft={() => {
+              setActive(null);
+              setVenueOpen(false);
+              setTab('map');
+            }}
+          />
+        </Pane>
+      ) : (
+        <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
+      )}
     </View>
   );
 }

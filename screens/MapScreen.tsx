@@ -38,7 +38,7 @@ type Props = {
 
 const GAP = 12;
 
-// Haritadaki mekan pini: kategori emojisi + canlı kişi sayısı.
+// Haritadaki kafe pini: kahve simgesi + canlı kişi sayısı.
 function VenueMarker({
   venue,
   selected,
@@ -191,7 +191,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
     const { data, error } = await supabase.rpc('venues_nearby', { p_lat: lat, p_lng: lng, p_max_m: 2500 });
     if (error) {
-      Alert.alert('Mekanlar alınamadı', error.message);
+      Alert.alert('Kafeler alınamadı', error.message);
       return;
     }
     const list = (data ?? []) as Venue[];
@@ -308,7 +308,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         <FadeIn delay={120}>
           <Text style={styles.centerTitle}>Konum iznine ihtiyacımız var</Text>
           <Text style={styles.centerText}>
-            Yakınındaki mekanları göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun
+            Yakınındaki kafeleri göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun
             başkalarına gösterilmez.
           </Text>
         </FadeIn>
@@ -404,13 +404,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       <FadeIn y={40} delay={250} duration={520} style={[styles.carouselWrap, { bottom: space + 4 }]}>
         {venues.length === 0 ? (
           <View style={[styles.card, { width: width - 32, marginLeft: 16 }]}>
-            <Text style={styles.cardName}>Yakında kayıtlı mekan yok</Text>
+            <Text style={styles.cardName}>Yakında kayıtlı kafe yok</Text>
             <Text style={styles.cardMeta}>
-              2,5 km içinde henüz mekan eklenmemiş. Mekanlar eklendikçe burada ve haritada görünür.
+              2,5 km içinde henüz kafe eklenmemiş. Kafeler eklendikçe burada ve haritada görünür.
             </Text>
             {isAdmin ? (
               <AnimatedButton
-                title="Bulunduğum yere mekan ekle"
+                title="Bulunduğum yere kafe ekle"
                 icon="add-circle"
                 onPress={() => setAdding(true)}
                 style={{ marginTop: 14 }}

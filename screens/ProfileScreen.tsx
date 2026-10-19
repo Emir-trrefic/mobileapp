@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
 import ProfileView from '../components/ProfileView';
 import { FadeIn } from '../components/Transition';
+import { formatPhone } from '../lib/contact';
 import { tap } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
@@ -74,10 +75,28 @@ export default function ProfileScreen({ profile, onSaved, onSignOut }: Props) {
           ) : null}
 
           <FadeIn delay={440}>
+            <Pressable style={styles.contact} onPress={openEdit}>
+              <Ionicons name="lock-closed-outline" size={20} color={c.accentLight} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.nudgeTitle}>İletişim bilgilerin</Text>
+                {profile.phone || profile.instagram ? (
+                  <Text style={styles.nudgeText}>
+                    {[profile.instagram ? `@${profile.instagram}` : null, profile.phone ? formatPhone(profile.phone) : null]
+                      .filter(Boolean)
+                      .join('  ·  ')}
+                  </Text>
+                ) : (
+                  <Text style={[styles.nudgeText, { color: c.warn }]}>Henüz eklenmedi, istek kabul edebilmek için ekle.</Text>
+                )}
+                <Text style={styles.nudgeText}>Sadece isteğini kabul ettiğin kişi görür.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
+            </Pressable>
+
             <View style={styles.privacy}>
               <Ionicons name="lock-closed" size={18} color={c.success} />
               <Text style={styles.privacyText}>
-                Seni sadece aynı mekanda check-in yapmış kişiler görebilir. Mekandan ayrılınca ya da süre dolunca (3 saat)
+                Seni sadece aynı kafede check-in yapmış kişiler görebilir. Kafeden ayrılınca ya da süre dolunca (3 saat)
                 görünmez olursun.
               </Text>
             </View>
@@ -129,6 +148,16 @@ const makeStyles = (c: Palette) =>
       justifyContent: 'center',
     },
     nudge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.card,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 14,
+      marginBottom: 14,
+    },
+    contact: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: c.card,

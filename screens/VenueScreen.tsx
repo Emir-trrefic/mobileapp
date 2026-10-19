@@ -12,8 +12,6 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import AnimatedButton from '../components/AnimatedButton';
 import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import PersonCard from '../components/PersonCard';
@@ -21,7 +19,7 @@ import PersonSheet from '../components/PersonSheet';
 import { FadeIn } from '../components/Transition';
 import { success, tap, warning } from '../lib/haptics';
 import { distanceMeters } from '../lib/geo';
-import { useInsets, useTabBarSpace } from '../lib/layout';
+import { useInsets } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
@@ -35,7 +33,7 @@ type Props = {
   myInterests: string[];
   incoming: IncomingRequest[];
   onIncomingChanged: () => void;
-  onGoMap: () => void;
+  onClose: () => void;
   onLeft: () => void;
 };
 
@@ -44,11 +42,10 @@ const LEAVE_FACTOR = 2; // yarıçapın bu kadar katı dışına çıkarsan otom
 const PAD = 16;
 const GAP = 12;
 
-export default function VenueScreen({ active, userId, myInterests, incoming, onIncomingChanged, onGoMap, onLeft }: Props) {
+export default function VenueScreen({ active, userId, myInterests, incoming, onIncomingChanged, onClose, onLeft }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
-  const space = useTabBarSpace();
   const { width } = useWindowDimensions();
   const cardW = Math.floor((width - PAD * 2 - GAP) / 2);
 
@@ -69,7 +66,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
         Alert.alert('Hata', error.message);
         return;
       }
-      if (silent) Alert.alert('Mekandan ayrıldın', 'Check-out otomatik yapıldı, artık kimse seni görmüyor.');
+      if (silent) Alert.alert('Kafeden ayrıldın', 'Check-out otomatik yapıldı, artık kimse seni görmüyor.');
       onLeft();
     },
     [onLeft],
@@ -132,7 +129,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     }
     if (accept) {
       success();
-      Alert.alert('Eşleştiniz', `${r.display_name} ile tanışabilirsiniz. Mekanda etrafına bak.`);
+      Alert.alert('Kabul ettin', `${r.display_name} artık iletişim bilgilerini görebilir.`);
     } else {
       tap();
     }
@@ -172,31 +169,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     ]);
   }
 
-  // ------------------------------------------------------------ mekanda değilsin
-
-  if (!active) {
-    return (
-      <View style={[styles.empty, { paddingTop: insets.top }]}>
-        <Backdrop />
-        <FadeIn scale={0.85} y={20} duration={520}>
-          <View style={styles.emptyIconWrap}>
-            <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emptyIcon}>
-              <Ionicons name="people" size={42} color="#fff" />
-            </LinearGradient>
-          </View>
-        </FadeIn>
-        <FadeIn delay={120}>
-          <Text style={styles.emptyTitle}>Henüz bir mekanda değilsin</Text>
-          <Text style={styles.emptyText}>
-            Haritadan yakınındaki bir mekana check-in yap. O an orada olan insanları burada göreceksin.
-          </Text>
-        </FadeIn>
-        <FadeIn delay={240} style={{ alignSelf: 'stretch' }}>
-          <AnimatedButton title="Haritaya git" icon="map" onPress={onGoMap} style={{ marginTop: 24 }} />
-        </FadeIn>
-      </View>
-    );
-  }
+  if (!active) return null;
 
   const selected = people.find((p) => p.user_id === selectedId) ?? null;
   const remaining = fmtRemaining(new Date(active.expires_at).getTime() - now);
@@ -204,6 +177,12 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   const header = (
     <View>
       <FadeIn y={-8}>
+        <Pressable style={styles.backRow} onPress={onClose} hitSlop={10}>
+          <View style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={c.text} />
+          </View>
+          <Text style={styles.backText}>Harita</Text>
+        </Pressable>
         <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
             <View style={styles.livePill}>
@@ -220,7 +199,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
           <Pressable
             style={styles.leaveBtn}
             onPress={() =>
-              Alert.alert('Check-out yapılsın mı?', 'Mekandan ayrılırsan artık kimse seni göremez.', [
+              Alert.alert('Check-out yapılsın mı?', 'Kafeden ayrılırsan artık kimse seni göremez.', [
                 { text: 'Vazgeç', style: 'cancel' },
                 { text: 'Check-out', style: 'destructive', onPress: () => checkOut(false) },
               ])
@@ -274,7 +253,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
         columnWrapperStyle={{ gap: GAP }}
         ListHeaderComponent={header}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} />}
-        contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: insets.top + 12, paddingBottom: space + 16 }}
+        contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 28 }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           loaded ? (
@@ -282,7 +261,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
               <Ionicons name="radio-outline" size={44} color={c.accentLight} />
               <Text style={styles.waitingTitle}>Henüz kimse yok</Text>
               <Text style={styles.waitingText}>
-                Biri bu mekanda check-in yaptığında burada görünecek. Yenilemek için aşağı çek.
+                Biri bu kafede check-in yaptığında burada görünecek. Yenilemek için aşağı çek.
               </Text>
             </FadeIn>
           ) : null
@@ -329,6 +308,18 @@ const makeStyles = (c: Palette) =>
     emptyTitle: { color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center', letterSpacing: -0.4 },
     emptyText: { color: c.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
 
+    backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, alignSelf: 'flex-start' },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    backText: { color: c.muted, fontSize: 15, fontWeight: '600', marginLeft: 10 },
     headerTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
     livePill: {
       alignSelf: 'flex-start',

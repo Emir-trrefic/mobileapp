@@ -15,6 +15,7 @@ import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
+import { parseContact } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
 import { INTERESTS, MAX_INTERESTS, MIN_INTERESTS, ageFrom, uploadAvatar } from '../lib/profile';
 import { supabase } from '../lib/supabase';
@@ -34,6 +35,8 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   const [name, setName] = useState(profile.display_name);
   const [job, setJob] = useState(profile.job ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
+  const [phone, setPhone] = useState(profile.phone ?? '');
+  const [insta, setInsta] = useState(profile.instagram ? `@${profile.instagram}` : '');
   const [interests, setInterests] = useState<string[]>(profile.interests);
   const [photoUri, setPhotoUri] = useState<string | null>(profile.avatar_url);
   const [photoMime, setPhotoMime] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   const [error, setError] = useState<string | null>(null);
   const jobRef = useRef<TextInput>(null);
   const bioRef = useRef<TextInput>(null);
+  const instaRef = useRef<TextInput>(null);
 
   const age = ageFrom(profile.birth_year);
 
@@ -66,6 +70,11 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
       setError(`En az ${MIN_INTERESTS} ilgi alanı seç.`);
       return;
     }
+    const contact = parseContact(phone, insta, true);
+    if (contact.error) {
+      setError(contact.error);
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -80,6 +89,8 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
           bio: bio.trim() || null,
           interests,
           avatar_url: avatarUrl,
+          phone: contact.phone,
+          instagram: contact.instagram,
         })
         .eq('id', profile.id)
         .select(PROFILE_COLUMNS)
@@ -152,6 +163,27 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
         />
         <AnimatedInput ref={bioRef} tall label="Kısa tanıtım" value={bio} onChangeText={setBio} maxLength={160} />
         <Text style={styles.count}>{bio.length}/160</Text>
+
+        <Text style={styles.section}>İletişim (sadece kabul ettiğin kişi görür)</Text>
+        <AnimatedInput
+          label="Telefon"
+          value={phone}
+          onChangeText={setPhone}
+          maxLength={20}
+          keyboardType="phone-pad"
+          textContentType="telephoneNumber"
+          returnKeyType="next"
+          onSubmitEditing={() => instaRef.current?.focus()}
+        />
+        <AnimatedInput
+          ref={instaRef}
+          label="Instagram"
+          value={insta}
+          onChangeText={setInsta}
+          maxLength={40}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
         <Text style={styles.section}>
           İlgi alanları · {interests.length}/{MAX_INTERESTS}

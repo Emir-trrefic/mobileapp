@@ -20,6 +20,7 @@ import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
+import { parseContact } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import {
@@ -44,7 +45,7 @@ type Props = {
   onSignOut: () => void;
 };
 
-const STEPS = 5;
+const STEPS = 6;
 
 export default function OnboardingScreen({ userId, initial, onDone, onSignOut }: Props) {
   const c = useColors();
@@ -60,11 +61,14 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const [interests, setInterests] = useState<string[]>(initial?.interests ?? []);
   const [job, setJob] = useState(initial?.job ?? '');
   const [bio, setBio] = useState(initial?.bio ?? '');
+  const [phone, setPhone] = useState(initial?.phone ?? '');
+  const [insta, setInsta] = useState(initial?.instagram ? `@${initial.instagram}` : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const yearRef = useRef<TextInput>(null);
   const bioRef = useRef<TextInput>(null);
+  const instaRef = useRef<TextInput>(null);
   const progress = useRef(new Animated.Value(1 / STEPS)).current;
   const slide = useRef(new Animated.Value(1)).current;
 
@@ -91,7 +95,9 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         ? birthYear !== null
         : step === 3
           ? interests.length >= MIN_INTERESTS
-          : true;
+          : step === 4
+            ? Boolean(phone.trim() || insta.trim())
+            : true;
 
   function toggleInterest(label: string) {
     setInterests((cur) => {
@@ -107,6 +113,14 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   async function finish() {
     Keyboard.dismiss();
     if (birthYear === null) return;
+    const contact = parseContact(phone, insta, true);
+    if (contact.error) {
+      setError(contact.error);
+      warning();
+      setDir(-1);
+      setStep(4);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -121,6 +135,8 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         job: job.trim() || null,
         interests,
         avatar_url: avatarUrl,
+        phone: contact.phone,
+        instagram: contact.instagram,
       };
       const { data, error: err } = await supabase.from('profiles').upsert(row).select(PROFILE_COLUMNS).single();
       if (err) throw err;
@@ -137,6 +153,14 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
   function next() {
     if (!canNext) return;
+    if (step === 4) {
+      const contact = parseContact(phone, insta, true);
+      if (contact.error) {
+        setError(contact.error);
+        warning();
+        return;
+      }
+    }
     if (step === STEPS - 1) {
       finish();
       return;
@@ -159,6 +183,10 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     { t: 'Doğum yılın?', s: `Sadece yaşın görünür. ${MIN_AGE} yaşından küçükler katılamaz.` },
     { t: 'Bir fotoğraf ekle', s: 'Yüzünün göründüğü net bir fotoğraf tanışmayı kolaylaştırır.' },
     { t: 'Nelerden hoşlanıyorsun?', s: `En az ${MIN_INTERESTS}, en fazla ${MAX_INTERESTS} tane seç.` },
+    {
+      t: 'İletişim bilgin',
+      s: 'Biri tanışma isteğini kabul ettiğinde onun gönderdiği kişiye bu bilgiler gösterilir. Başka kimse göremez. İkisinden birini yazman yeterli.',
+    },
     { t: 'Biraz kendinden bahset', s: 'İkisi de isteğe bağlı, istersen boş geç.' },
   ];
 
@@ -283,6 +311,39 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
             {step === 4 && (
               <>
                 <AnimatedInput
+                  label="Telefon (örn. 0532 123 45 67)"
+                  value={phone}
+                  onChangeText={setPhone}
+                  maxLength={20}
+                  autoFocus
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  returnKeyType="next"
+                  onSubmitEditing={() => instaRef.current?.focus()}
+                />
+                <AnimatedInput
+                  ref={instaRef}
+                  label="Instagram (örn. @kullaniciadi)"
+                  value={insta}
+                  onChangeText={setInsta}
+                  maxLength={40}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={next}
+                />
+                <View style={styles.privacyBox}>
+                  <Ionicons name="lock-closed" size={18} color={c.success} />
+                  <Text style={styles.privacyText}>
+                    Bilgilerin mekandaki kişilere gösterilmez. Sadece tanışma isteğini kabul ettiğin kişi görür.
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {step === 5 && (
+              <>
+                <AnimatedInput
                   label="Meslek / okul (isteğe bağlı)"
                   value={job}
                   onChangeText={setJob}
@@ -387,5 +448,14 @@ const makeStyles = (c: Palette) =>
     previewAge: { fontWeight: '400' },
     previewSub: { color: c.muted, fontSize: 13, marginTop: 3 },
     error: { color: c.danger, fontSize: 14, marginTop: 12 },
+    privacyBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: c.successSoft,
+      borderRadius: 18,
+      padding: 14,
+      marginTop: 6,
+    },
+    privacyText: { color: c.text, fontSize: 13, lineHeight: 19, marginLeft: 10, flex: 1 },
     bottom: { paddingHorizontal: 24, paddingTop: 10 },
   });

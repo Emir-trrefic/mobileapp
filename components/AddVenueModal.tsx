@@ -6,7 +6,6 @@ import { tap } from '../lib/haptics';
 import { supabase } from '../lib/supabase';
 import { useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
-import { CATEGORIES } from '../lib/venue';
 
 type Props = {
   visible: boolean;
@@ -21,7 +20,6 @@ const RADII = [50, 80, 150, 300];
 export default function AddVenueModal({ visible, coords, onClose, onAdded }: Props) {
   const styles = useStyles(makeStyles);
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('cafe');
   const [radius, setRadius] = useState(80);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +27,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
   async function save() {
     if (!coords) return;
     if (name.trim().length < 2) {
-      setError('Mekan adı en az 2 karakter olsun.');
+      setError('Kafe adı en az 2 karakter olsun.');
       return;
     }
     setError(null);
@@ -38,7 +36,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
       p_name: name.trim(),
       p_lat: coords.lat,
       p_lng: coords.lng,
-      p_category: category,
+      p_category: 'cafe',
       p_radius: radius,
     });
     setBusy(false);
@@ -56,34 +54,16 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.title}>Buraya mekan ekle</Text>
+            <Text style={styles.title}>Buraya kafe ekle</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Text style={styles.cancel}>Kapat</Text>
             </Pressable>
           </View>
           <Text style={styles.sub}>
-            Mekan şu anki konumuna eklenir. Check-in için bu noktanın seçtiğin yarıçapı içinde olmak gerekir.
+            Kafe şu anki konumuna eklenir. Check-in için bu noktanın seçtiğin yarıçapı içinde olmak gerekir.
           </Text>
 
-          <AnimatedInput label="Mekan adı" value={name} onChangeText={setName} maxLength={50} autoCapitalize="words" />
-
-          <Text style={styles.label}>Kategori</Text>
-          <View style={styles.wrap}>
-            {CATEGORIES.map((c) => (
-              <Pressable
-                key={c.key}
-                onPress={() => {
-                  tap();
-                  setCategory(c.key);
-                }}
-                style={[styles.pill, category === c.key && styles.pillOn]}
-              >
-                <Text style={[styles.pillText, category === c.key && styles.pillTextOn]}>
-                  {c.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <AnimatedInput label="Kafe adı" value={name} onChangeText={setName} maxLength={50} autoCapitalize="words" />
 
           <Text style={styles.label}>Check-in yarıçapı</Text>
           <View style={styles.wrap}>
@@ -102,7 +82,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <AnimatedButton title="Mekanı ekle" icon="add-circle" onPress={save} loading={busy} style={{ marginTop: 10 }} />
+          <AnimatedButton title="Kafeyi ekle" icon="add-circle" onPress={save} loading={busy} style={{ marginTop: 10 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>

@@ -2,6 +2,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from './AnimatedButton';
 import ProfileView from './ProfileView';
+import { requestNote } from '../lib/contact';
 import { ageFrom } from '../lib/profile';
 import { useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
@@ -49,13 +50,9 @@ export default function PersonSheet({ person, myInterests, onClose, onMeet, onMo
             </ScrollView>
 
             <View style={styles.footer}>
-              {status === 'accepted' ? (
+              {status ? (
                 <View style={styles.doneBox}>
-                  <Text style={styles.doneText}>Eşleştiniz. Mekanda etrafına bak, bu kişi de burada.</Text>
-                </View>
-              ) : status === 'pending' ? (
-                <View style={styles.doneBox}>
-                  <Text style={styles.doneText}>İstek gönderildi, yanıt bekleniyor…</Text>
+                  <Text style={styles.doneText}>{requestNote(status, person.request_direction)}</Text>
                 </View>
               ) : (
                 <AnimatedButton

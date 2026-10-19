@@ -3,6 +3,7 @@ import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { FadeIn } from './Transition';
+import { requestLabel } from '../lib/contact';
 import { impact } from '../lib/haptics';
 import { ageFrom, colorFor } from '../lib/profile';
 import { photoShade, useColors, useStyles } from '../lib/theme';
@@ -64,13 +65,15 @@ export default function PersonCard({ person, width, shared, index, onPress, onMe
             ) : null}
           </View>
 
-          {status === 'accepted' ? (
-            <View style={[styles.statusPill, { backgroundColor: c.success }]}>
-              <Text style={styles.statusText}>Eşleştiniz</Text>
-            </View>
-          ) : status === 'pending' ? (
-            <View style={styles.statusPill}>
-              <Text style={styles.statusText}>İstek gönderildi</Text>
+          {status ? (
+            <View
+              style={[
+                styles.statusPill,
+                status === 'accepted' && { backgroundColor: c.success },
+                status === 'pending' && person.request_direction === 'received' && { backgroundColor: c.pink },
+              ]}
+            >
+              <Text style={styles.statusText}>{requestLabel(status, person.request_direction)}</Text>
             </View>
           ) : (
             <Pressable
@@ -104,7 +107,7 @@ const makeStyles = (c: Palette) =>
     noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     initial: { color: 'rgba(255,255,255,0.9)', fontSize: 64, fontWeight: '800' },
     shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%' },
-    info: { position: 'absolute', left: 12, right: 60, bottom: 12 },
+    info: { position: 'absolute', left: 12, right: 12, bottom: 58 },
     name: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
     age: { fontWeight: '400' },
     sub: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3 },

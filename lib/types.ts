@@ -1,3 +1,5 @@
+export type RequestStatus = 'pending' | 'accepted' | 'declined';
+
 export type Venue = {
   id: string;
   name: string;
@@ -27,6 +29,8 @@ export type Profile = {
   job: string | null;
   interests: string[];
   avatar_url: string | null;
+  phone: string | null;
+  instagram: string | null;
 };
 
 export type Person = {
@@ -37,7 +41,8 @@ export type Person = {
   birth_year: number | null;
   job: string | null;
   interests: string[];
-  request_status: 'pending' | 'accepted' | 'declined' | null;
+  request_status: RequestStatus | null;
+  request_direction: 'sent' | 'received' | null;
 };
 
 export type IncomingRequest = {
@@ -53,4 +58,25 @@ export type IncomingRequest = {
   created_at: string;
 };
 
-export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url';
+// Benimle ilgili bir tanisma istegi (gelen ya da giden). Telefon / Instagram sadece
+// benim gonderdigim ve kabul edilmis isteklerde dolu gelir.
+export type Connection = {
+  request_id: string;
+  direction: 'sent' | 'received';
+  status: RequestStatus;
+  other_id: string;
+  display_name: string;
+  bio: string | null;
+  avatar_url: string | null;
+  birth_year: number | null;
+  job: string | null;
+  interests: string[];
+  venue_id: string;
+  venue_name: string;
+  created_at: string;
+  responded_at: string | null;
+  phone: string | null;
+  instagram: string | null;
+};
+
+export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram';
