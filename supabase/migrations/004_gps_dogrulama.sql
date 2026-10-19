@@ -131,7 +131,8 @@ language sql stable security definer set search_path = public, extensions as $$
   limit 50;
 $$;
 
-create or replace function public.venue_people(p_venue uuid)
+drop function if exists public.venue_people(uuid);
+create function public.venue_people(p_venue uuid)
 returns table (user_id uuid, display_name text, bio text, avatar_url text, birth_year smallint,
                job text, interests text[], request_status text, request_direction text)
 language sql stable security definer set search_path = public as $$
