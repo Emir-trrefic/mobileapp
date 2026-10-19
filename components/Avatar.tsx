@@ -31,7 +31,7 @@ export default function Avatar({ uri, name, size, ring }: Props) {
 
   return (
     <LinearGradient
-      colors={c.gradient}
+      colors={[c.accentLight, c.pink]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}

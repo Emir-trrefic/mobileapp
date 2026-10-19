@@ -298,7 +298,7 @@ function AppShell() {
       </Pane>
 
       <Pane visible={tab === 'profile'}>
-        <ProfileScreen profile={profile} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
+        <ProfileScreen profile={profile} connections={connections} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
       </Pane>
 
       {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}

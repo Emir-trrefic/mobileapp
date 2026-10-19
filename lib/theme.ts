@@ -44,11 +44,11 @@ export type Palette = {
 // Koyu tema: lacivert tonlu siyah, beyaz metin. Tek vurgu: açık gök mavisi/lacivert tonları.
 export const darkColors: Palette = {
   scheme: 'dark',
-  bg: '#070B16',
-  card: '#0E1527',
-  cardFocus: '#121B33',
-  card2: '#17223D',
-  border: '#222F4F',
+  bg: '#081028',
+  card: '#0E1A3A',
+  cardFocus: '#132144',
+  card2: '#17264F',
+  border: '#243561',
   line: 'rgba(255,255,255,0.04)',
   text: '#F4F6FB',
   muted: '#93A0BF',
@@ -62,13 +62,13 @@ export const darkColors: Palette = {
   warn: '#FBBF24',
   danger: '#FF7A8A',
   dangerSoft: 'rgba(255,122,138,0.15)',
-  glass: 'rgba(14,21,39,0.96)',
+  glass: 'rgba(14,26,58,0.97)',
   scrim: 'rgba(4,7,16,0.62)',
   shadow: '#000000',
   shadowOpacity: 0.5,
-  gradient: ['#2447A8', '#0F2260'],
-  hero: ['#070B16', '#0A1230', '#0F1B4A'],
-  blobs: ['rgba(61,107,255,0.28)', 'rgba(157,180,255,0.03)'],
+  gradient: ['#1C3F9E', '#12296B'],
+  hero: ['#081028', '#081028', '#0A1331'],
+  blobs: ['rgba(61,107,255,0)', 'rgba(61,107,255,0)'],
 };
 
 // Açık tema: beyaz zemin, siyaha yakın lacivert metin, lacivert vurgu.
@@ -97,7 +97,7 @@ export const lightColors: Palette = {
   shadow: '#0A1A47',
   shadowOpacity: 0.14,
   gradient: ['#1B3A8C', '#0A1A47'],
-  hero: ['#FFFFFF', '#EEF2FB', '#D9E2F6'],
+  hero: ['#FFFFFF', '#F6F8FC', '#EEF2FA'],
   blobs: ['rgba(27,58,140,0.16)', 'rgba(47,91,234,0.03)'],
 };
 

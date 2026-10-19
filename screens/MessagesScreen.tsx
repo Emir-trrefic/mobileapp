@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import AnimatedButton from '../components/AnimatedButton';
 import Avatar from '../components/Avatar';
-import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
 import { formatPhone, instagramUrl, phoneUrl, whatsappUrl } from '../lib/contact';
 import { success, tap, warning } from '../lib/haptics';
@@ -24,15 +21,19 @@ type Props = {
 
 function ago(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (min < 1) return 'az önce';
-  if (min < 60) return `${min} dk önce`;
+  if (min < 1) return 'şimdi';
+  if (min < 60) return `${min} dk`;
   const h = Math.round(min / 60);
-  if (h < 24) return `${h} sa önce`;
-  return `${Math.round(h / 24)} gün önce`;
+  if (h < 24) return `${h} sa`;
+  return `${Math.round(h / 24)} g`;
 }
 
 function open(url: string) {
   Linking.openURL(url).catch(() => Alert.alert('Açılamadı', 'Bu bağlantı cihazında açılamadı.'));
+}
+
+function firstName(n: string) {
+  return n.trim().split(/\s+/)[0] || n;
 }
 
 export default function MessagesScreen({ connections, profile, onChanged, onGoProfile }: Props) {
@@ -42,13 +43,13 @@ export default function MessagesScreen({ connections, profile, onChanged, onGoPr
   const space = useTabBarSpace();
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<Connection | null>(null);
 
   const hasContact = Boolean(profile.phone || profile.instagram);
 
   const incoming = connections.filter((x) => x.direction === 'received' && x.status === 'pending');
   const met = connections.filter((x) => x.direction === 'sent' && x.status === 'accepted');
-  const sent = connections.filter((x) => x.direction === 'sent' && x.status !== 'accepted');
-  const accepted = connections.filter((x) => x.direction === 'received' && x.status === 'accepted');
+  const rest = connections.filter((x) => !(x.direction === 'received' && x.status === 'pending'));
 
   async function refresh() {
     setRefreshing(true);
@@ -96,42 +97,73 @@ export default function MessagesScreen({ connections, profile, onChanged, onGoPr
     }
   }
 
+  function subtitle(x: Connection): string {
+    if (x.direction === 'sent' && x.status === 'accepted') {
+      return `${x.instagram ? '@' + x.instagram : x.phone ? formatPhone(x.phone) : 'İletişim bilgisi yok'} · ${ago(x.responded_at ?? x.created_at)}`;
+    }
+    if (x.direction === 'sent' && x.status === 'pending') return `İstek gönderildi · ${ago(x.created_at)}`;
+    if (x.direction === 'sent') return `Kabul edilmedi · ${ago(x.responded_at ?? x.created_at)}`;
+    if (x.status === 'accepted') return `İletişim bilgin paylaşıldı · ${ago(x.responded_at ?? x.created_at)}`;
+    return `İstek reddedildi · ${ago(x.responded_at ?? x.created_at)}`;
+  }
+
   const empty = connections.length === 0;
 
   return (
     <View style={styles.root}>
-      <Backdrop intensity={0.6} />
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: space + 24, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: space + 24 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.accent} />}
       >
-        <FadeIn y={-8}>
+        {/* Üst çubuk */}
+        <View style={styles.topBar}>
           <Text style={styles.title}>Mesajlar</Text>
-          <Text style={styles.subtitle}>Tanışma istekleri ve kabul edilen kişilerin iletişim bilgileri</Text>
-        </FadeIn>
+          {incoming.length > 0 ? (
+            <View style={styles.countBadge}>
+              <Text style={styles.countText}>{incoming.length}</Text>
+            </View>
+          ) : null}
+        </View>
 
         {!hasContact ? (
-          <FadeIn delay={80}>
-            <Pressable style={styles.warnCard} onPress={onGoProfile}>
-              <Ionicons name="call-outline" size={22} color={c.warn} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.warnTitle}>İletişim bilgisi eksik</Text>
-                <Text style={styles.warnText}>
-                  İstekleri kabul edebilmek için telefon ya da Instagram ekle. Sadece kabul ettiğin kişi görür.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.muted} />
-            </Pressable>
+          <Pressable style={styles.warn} onPress={onGoProfile}>
+            <Ionicons name="alert-circle-outline" size={22} color={c.warn} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.warnTitle}>İletişim bilgisi ekle</Text>
+              <Text style={styles.warnText}>İstekleri kabul etmek için telefon ya da Instagram gerekli.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
+          </Pressable>
+        ) : null}
+
+        {/* Hikaye şeridi: tanıştıkların */}
+        {met.length > 0 ? (
+          <FadeIn y={10}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stories}>
+              {met.map((x) => (
+                <Pressable
+                  key={x.request_id}
+                  style={styles.story}
+                  onPress={() => {
+                    tap();
+                    setSheet(x);
+                  }}
+                >
+                  <Avatar uri={x.avatar_url} name={x.display_name} size={72} ring />
+                  <Text style={styles.storyName} numberOfLines={1}>
+                    {firstName(x.display_name)}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </FadeIn>
         ) : null}
 
         {empty ? (
-          <FadeIn delay={120} style={styles.empty}>
-            <View style={styles.emptyIconWrap}>
-              <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emptyIcon}>
-                <Ionicons name="chatbubbles" size={38} color="#fff" />
-              </LinearGradient>
+          <FadeIn delay={100} style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="chatbubble-outline" size={34} color={c.text} />
             </View>
             <Text style={styles.emptyTitle}>Henüz mesaj yok</Text>
             <Text style={styles.emptyText}>
@@ -140,188 +172,163 @@ export default function MessagesScreen({ connections, profile, onChanged, onGoPr
           </FadeIn>
         ) : null}
 
+        {/* Gelen istekler: takip isteği düzeninde */}
         {incoming.length > 0 ? (
-          <>
-            <Text style={styles.section}>Gelen istekler · {incoming.length}</Text>
+          <View style={{ marginTop: 6 }}>
+            <Text style={styles.section}>Gelen istekler</Text>
             {incoming.map((x, i) => (
-              <FadeIn key={x.request_id} delay={i * 70} y={16}>
-                <View style={[styles.card, styles.cardIncoming]}>
-                  <View style={styles.row}>
-                    <Avatar uri={x.avatar_url} name={x.display_name} size={54} ring />
-                    <View style={styles.rowText}>
-                      <Text style={styles.name} numberOfLines={1}>
-                        {x.display_name}
-                        {ageFrom(x.birth_year) ? <Text style={styles.age}>{`  ${ageFrom(x.birth_year)}`}</Text> : null}
-                      </Text>
-                      <Text style={styles.sub} numberOfLines={1}>
-                        {x.venue_name} · {ago(x.created_at)}
-                      </Text>
-                      {x.job || x.interests.length > 0 ? (
-                        <Text style={styles.sub2} numberOfLines={1}>
-                          {x.job || x.interests.slice(0, 3).join(' · ')}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  {x.bio ? (
-                    <Text style={styles.bio} numberOfLines={2}>
-                      {x.bio}
-                    </Text>
-                  ) : null}
-                  <View style={styles.actions}>
-                    <AnimatedButton
-                      title="Kabul et"
-                      icon="checkmark"
-                      compact
-                      loading={busyId === x.request_id}
-                      onPress={() => respond(x, true)}
-                      style={{ flex: 1 }}
-                    />
-                    <AnimatedButton
-                      title="Reddet"
-                      variant="ghost"
-                      compact
-                      onPress={() => respond(x, false)}
-                      style={{ flex: 1, marginLeft: 10 }}
-                    />
-                  </View>
-                </View>
-              </FadeIn>
-            ))}
-          </>
-        ) : null}
-
-        {met.length > 0 ? (
-          <>
-            <Text style={styles.section}>Tanıştıkların · {met.length}</Text>
-            {met.map((x, i) => (
-              <FadeIn key={x.request_id} delay={i * 70} y={16}>
-                <View style={[styles.card, styles.cardMet]}>
-                  <View style={styles.row}>
-                    <Avatar uri={x.avatar_url} name={x.display_name} size={54} ring />
-                    <View style={styles.rowText}>
-                      <Text style={styles.name} numberOfLines={1}>
-                        {x.display_name}
-                        {ageFrom(x.birth_year) ? <Text style={styles.age}>{`  ${ageFrom(x.birth_year)}`}</Text> : null}
-                      </Text>
-                      <Text style={styles.sub} numberOfLines={1}>
-                        {x.venue_name} · kabul etti · {ago(x.responded_at ?? x.created_at)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.contactBox}>
-                    {x.instagram ? (
-                      <Pressable
-                        style={styles.contactRow}
-                        onPress={() => {
-                          tap();
-                          open(instagramUrl(x.instagram!));
-                        }}
-                      >
-                        <View style={[styles.contactIcon, { backgroundColor: c.pinkSoft }]}>
-                          <Ionicons name="logo-instagram" size={20} color={c.pink} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.contactLabel}>Instagram</Text>
-                          <Text style={styles.contactValue} selectable>
-                            @{x.instagram}
-                          </Text>
-                        </View>
-                        <Ionicons name="open-outline" size={18} color={c.muted} />
-                      </Pressable>
-                    ) : null}
-                    {x.phone ? (
-                      <View style={styles.contactRow}>
-                        <View style={[styles.contactIcon, { backgroundColor: c.successSoft }]}>
-                          <Ionicons name="call" size={19} color={c.success} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.contactLabel}>Telefon</Text>
-                          <Text style={styles.contactValue} selectable>
-                            {formatPhone(x.phone)}
-                          </Text>
-                        </View>
-                        <Pressable
-                          style={styles.miniBtn}
-                          onPress={() => {
-                            tap();
-                            open(whatsappUrl(x.phone!));
-                          }}
-                          hitSlop={6}
-                        >
-                          <Ionicons name="logo-whatsapp" size={18} color={c.success} />
-                        </Pressable>
-                        <Pressable
-                          style={[styles.miniBtn, { marginLeft: 8 }]}
-                          onPress={() => {
-                            tap();
-                            open(phoneUrl(x.phone!));
-                          }}
-                          hitSlop={6}
-                        >
-                          <Ionicons name="call-outline" size={18} color={c.accentLight} />
-                        </Pressable>
-                      </View>
-                    ) : null}
-                    {!x.instagram && !x.phone ? (
-                      <Text style={styles.sub}>Bu kişi iletişim bilgisini kaldırmış.</Text>
-                    ) : null}
-                  </View>
-                </View>
-              </FadeIn>
-            ))}
-          </>
-        ) : null}
-
-        {sent.length > 0 ? (
-          <>
-            <Text style={styles.section}>Gönderdiğin istekler</Text>
-            {sent.map((x, i) => (
-              <FadeIn key={x.request_id} delay={i * 50} y={12}>
-                <View style={styles.listRow}>
-                  <Avatar uri={x.avatar_url} name={x.display_name} size={44} />
+              <FadeIn key={x.request_id} delay={i * 60} y={10}>
+                <View style={styles.row}>
+                  <Avatar uri={x.avatar_url} name={x.display_name} size={56} />
                   <View style={styles.rowText}>
-                    <Text style={styles.listName} numberOfLines={1}>
+                    <Text style={styles.name} numberOfLines={1}>
                       {x.display_name}
+                      {ageFrom(x.birth_year) ? <Text style={styles.age}>{`, ${ageFrom(x.birth_year)}`}</Text> : null}
                     </Text>
                     <Text style={styles.sub} numberOfLines={1}>
                       {x.venue_name} · {ago(x.created_at)}
                     </Text>
+                    {x.bio ? (
+                      <Text style={styles.sub} numberOfLines={1}>
+                        {x.bio}
+                      </Text>
+                    ) : null}
                   </View>
-                  <View style={[styles.statusPill, x.status === 'declined' && { backgroundColor: c.dangerSoft }]}>
-                    <Text style={[styles.statusText, x.status === 'declined' && { color: c.danger }]}>
-                      {x.status === 'pending' ? 'Bekleniyor' : 'Kabul edilmedi'}
-                    </Text>
-                  </View>
+                  <Pressable
+                    style={[styles.btn, styles.btnPrimary, busyId === x.request_id && { opacity: 0.6 }]}
+                    onPress={() => respond(x, true)}
+                    disabled={busyId === x.request_id}
+                  >
+                    <Text style={styles.btnPrimaryText}>Kabul et</Text>
+                  </Pressable>
+                  <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => respond(x, false)} disabled={busyId === x.request_id}>
+                    <Text style={styles.btnGhostText}>Reddet</Text>
+                  </Pressable>
                 </View>
               </FadeIn>
             ))}
-          </>
+          </View>
         ) : null}
 
-        {accepted.length > 0 ? (
-          <>
-            <Text style={styles.section}>Kabul ettiklerin</Text>
-            {accepted.map((x, i) => (
-              <FadeIn key={x.request_id} delay={i * 50} y={12}>
-                <View style={styles.listRow}>
-                  <Avatar uri={x.avatar_url} name={x.display_name} size={44} />
-                  <View style={styles.rowText}>
-                    <Text style={styles.listName} numberOfLines={1}>
-                      {x.display_name}
-                    </Text>
-                    <Text style={styles.sub} numberOfLines={1}>
-                      {x.venue_name} · iletişim bilgin paylaşıldı
-                    </Text>
-                  </View>
-                  <Ionicons name="checkmark-circle" size={22} color={c.success} />
-                </View>
-              </FadeIn>
-            ))}
-          </>
+        {/* Sohbet listesi */}
+        {rest.length > 0 ? (
+          <View style={{ marginTop: incoming.length > 0 ? 10 : 6 }}>
+            <Text style={styles.section}>Mesajlar</Text>
+            {rest.map((x, i) => {
+              const isMet = x.direction === 'sent' && x.status === 'accepted';
+              return (
+                <FadeIn key={x.request_id} delay={i * 40} y={10}>
+                  <Pressable
+                    style={styles.row}
+                    onPress={() => {
+                      if (isMet) {
+                        tap();
+                        setSheet(x);
+                      }
+                    }}
+                    disabled={!isMet}
+                  >
+                    <Avatar uri={x.avatar_url} name={x.display_name} size={56} />
+                    <View style={styles.rowText}>
+                      <Text style={[styles.name, isMet && styles.nameBold]} numberOfLines={1}>
+                        {x.display_name}
+                      </Text>
+                      <Text style={[styles.sub, isMet && { color: c.text, opacity: 0.8 }]} numberOfLines={1}>
+                        {subtitle(x)}
+                      </Text>
+                    </View>
+                    {isMet ? (
+                      <Ionicons name={x.instagram ? 'logo-instagram' : 'call-outline'} size={24} color={c.text} />
+                    ) : x.status === 'pending' ? (
+                      <Ionicons name="time-outline" size={22} color={c.muted} />
+                    ) : x.status === 'accepted' ? (
+                      <Ionicons name="checkmark" size={22} color={c.muted} />
+                    ) : null}
+                  </Pressable>
+                </FadeIn>
+              );
+            })}
+          </View>
         ) : null}
       </ScrollView>
+
+      {/* İletişim sayfası: kabul eden kişinin bilgileri */}
+      <Modal visible={!!sheet} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
+        <Pressable style={styles.scrim} onPress={() => setSheet(null)} />
+        {sheet ? (
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 18 }]}>
+            <View style={styles.grab} />
+            <View style={styles.sheetHead}>
+              <Avatar uri={sheet.avatar_url} name={sheet.display_name} size={64} ring />
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={styles.sheetName} numberOfLines={1}>
+                  {sheet.display_name}
+                </Text>
+                <Text style={styles.sub} numberOfLines={1}>
+                  {sheet.venue_name} · kabul etti
+                </Text>
+              </View>
+            </View>
+
+            {sheet.instagram ? (
+              <Pressable
+                style={styles.cRow}
+                onPress={() => {
+                  tap();
+                  open(instagramUrl(sheet.instagram!));
+                }}
+              >
+                <View style={styles.cIcon}>
+                  <Ionicons name="logo-instagram" size={22} color={c.text} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cLabel}>Instagram</Text>
+                  <Text style={styles.cValue} selectable>
+                    @{sheet.instagram}
+                  </Text>
+                </View>
+                <View style={[styles.btn, styles.btnPrimary]}>
+                  <Text style={styles.btnPrimaryText}>Aç</Text>
+                </View>
+              </Pressable>
+            ) : null}
+            {sheet.phone ? (
+              <View style={styles.cRow}>
+                <View style={styles.cIcon}>
+                  <Ionicons name="call-outline" size={22} color={c.text} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cLabel}>Telefon</Text>
+                  <Text style={styles.cValue} selectable>
+                    {formatPhone(sheet.phone)}
+                  </Text>
+                </View>
+                <Pressable
+                  style={styles.round}
+                  onPress={() => {
+                    tap();
+                    open(whatsappUrl(sheet.phone!));
+                  }}
+                  hitSlop={6}
+                >
+                  <Ionicons name="logo-whatsapp" size={20} color={c.text} />
+                </Pressable>
+                <Pressable
+                  style={[styles.round, { marginLeft: 8 }]}
+                  onPress={() => {
+                    tap();
+                    open(phoneUrl(sheet.phone!));
+                  }}
+                  hitSlop={6}
+                >
+                  <Ionicons name="call" size={19} color={c.text} />
+                </Pressable>
+              </View>
+            ) : null}
+            {!sheet.instagram && !sheet.phone ? <Text style={styles.sub}>Bu kişi iletişim bilgisini kaldırmış.</Text> : null}
+          </View>
+        ) : null}
+      </Modal>
     </View>
   );
 }
@@ -329,88 +336,83 @@ export default function MessagesScreen({ connections, profile, onChanged, onGoPr
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    title: { color: c.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.9 },
-    subtitle: { color: c.muted, fontSize: 14, lineHeight: 20, marginTop: 4, marginBottom: 18 },
-    section: {
-      color: c.muted,
-      fontSize: 12,
-      fontWeight: '700',
-      letterSpacing: 0.9,
-      textTransform: 'uppercase',
-      marginTop: 14,
-      marginBottom: 12,
-    },
-    warnCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.card,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: c.warn,
-      padding: 14,
-      marginBottom: 8,
-    },
-    warnTitle: { color: c.text, fontWeight: '800', fontSize: 15 },
-    warnText: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
-    card: {
-      backgroundColor: c.card,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: c.border,
-      padding: 14,
-      marginBottom: 12,
-      shadowColor: c.shadow,
-      shadowOpacity: c.shadowOpacity * 0.45,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 6 },
-    },
-    cardIncoming: { borderColor: c.pink, borderWidth: 1.5 },
-    cardMet: { borderColor: c.success, borderWidth: 1.5 },
-    row: { flexDirection: 'row', alignItems: 'center' },
-    rowText: { flex: 1, marginLeft: 12 },
-    name: { color: c.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-    age: { fontWeight: '400' },
-    sub: { color: c.muted, fontSize: 13, marginTop: 2 },
-    sub2: { color: c.accentLight, fontSize: 13, marginTop: 2, fontWeight: '600' },
-    bio: { color: c.text, opacity: 0.85, fontSize: 14, lineHeight: 20, marginTop: 12 },
-    actions: { flexDirection: 'row', marginTop: 14 },
-    contactBox: { marginTop: 14, backgroundColor: c.card2, borderRadius: 18, padding: 4 },
-    contactRow: { flexDirection: 'row', alignItems: 'center', padding: 10 },
-    contactIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    contactLabel: { color: c.muted, fontSize: 12, fontWeight: '600' },
-    contactValue: { color: c.text, fontSize: 16, fontWeight: '700', marginTop: 1 },
-    miniBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: c.card,
-      borderWidth: 1,
-      borderColor: c.border,
+    topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48 },
+    title: { color: c.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+    countBadge: {
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: c.pink,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 6,
+      marginLeft: 8,
     },
-    listRow: {
+    countText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+    warn: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 4,
       backgroundColor: c.card,
-      borderRadius: 20,
-      borderWidth: 1,
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.border,
       padding: 12,
-      marginBottom: 10,
     },
-    listName: { color: c.text, fontSize: 16, fontWeight: '700' },
-    statusPill: { backgroundColor: c.card2, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 10 },
-    statusText: { color: c.muted, fontSize: 12, fontWeight: '700' },
-    empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 20 },
-    emptyIconWrap: {
-      shadowColor: c.accent,
-      shadowOpacity: 0.4,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      marginBottom: 20,
+    warnTitle: { color: c.text, fontWeight: '700', fontSize: 14 },
+    warnText: { color: c.muted, fontSize: 12.5, marginTop: 1 },
+    stories: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 },
+    story: { width: 82, alignItems: 'center', marginHorizontal: 2 },
+    storyName: { color: c.text, fontSize: 12.5, marginTop: 6, maxWidth: 76 },
+    section: { color: c.text, fontSize: 16, fontWeight: '800', paddingHorizontal: 16, marginTop: 14, marginBottom: 8 },
+    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
+    rowText: { flex: 1, marginLeft: 12, marginRight: 8 },
+    name: { color: c.text, fontSize: 15, fontWeight: '600' },
+    nameBold: { fontWeight: '800' },
+    age: { fontWeight: '400', color: c.muted },
+    sub: { color: c.muted, fontSize: 13, marginTop: 2 },
+    btn: { borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+    btnPrimary: { backgroundColor: c.pink },
+    btnPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    btnGhost: { backgroundColor: c.card2, marginLeft: 6 },
+    btnGhostText: { color: c.text, fontSize: 13, fontWeight: '700' },
+    empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 36 },
+    emptyIcon: {
+      width: 84,
+      height: 84,
+      borderRadius: 42,
+      borderWidth: 2,
+      borderColor: c.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
     },
-    emptyIcon: { width: 86, height: 86, borderRadius: 43, alignItems: 'center', justifyContent: 'center' },
-    emptyTitle: { color: c.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-    emptyText: { color: c.muted, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8 },
+    emptyTitle: { color: c.text, fontSize: 20, fontWeight: '800' },
+    emptyText: { color: c.muted, fontSize: 14.5, lineHeight: 21, textAlign: 'center', marginTop: 8 },
+    scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    sheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 18,
+      paddingTop: 10,
+    },
+    grab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, marginBottom: 16 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    sheetName: { color: c.text, fontSize: 19, fontWeight: '800' },
+    cRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+    cIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.card2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    cLabel: { color: c.muted, fontSize: 12.5 },
+    cValue: { color: c.text, fontSize: 16, fontWeight: '700', marginTop: 1 },
+    round: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   });
