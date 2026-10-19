@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-  Animated,
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -12,10 +12,6 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AnimatedButton from '../components/AnimatedButton';
-import AnimatedInput from '../components/AnimatedInput';
-import Backdrop from '../components/Backdrop';
-import { FadeIn } from '../components/Transition';
 import { warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
@@ -46,6 +42,7 @@ function translateError(message: string): string {
   return message;
 }
 
+// Sade giriş / kayıt formu. Animasyon yok: ekran her zaman anında ve eksiksiz çizilir.
 export default function AuthScreen({ initialMode, onBack }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
@@ -53,191 +50,151 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const shake = useRef(new Animated.Value(0)).current;
-  const heading = useRef(new Animated.Value(0)).current;
-  const strength = useRef(new Animated.Value(0)).current;
-  const hello = useRef(new Animated.Value(0)).current;
-
+  const isSignup = mode === 'signup';
   const score = passwordScore(password);
-  const scoreColors = [c.danger, c.danger, c.warn, c.success, c.success];
-  const nameGuess = email.includes('@') ? email.split('@')[0] : '';
-
-  useEffect(() => {
-    heading.setValue(0);
-    Animated.timing(heading, { toValue: 1, duration: 380, useNativeDriver: true }).start();
-  }, [mode, heading]);
-
-  useEffect(() => {
-    Animated.timing(strength, { toValue: password ? score / 4 : 0, duration: 260, useNativeDriver: false }).start();
-  }, [score, password, strength]);
-
-  useEffect(() => {
-    Animated.timing(hello, { toValue: nameGuess.length > 1 ? 1 : 0, duration: 260, useNativeDriver: true }).start();
-  }, [nameGuess, hello]);
-
-  function doShake() {
-    warning();
-    Animated.sequence(
-      [10, -10, 8, -8, 4, 0].map((v) => Animated.timing(shake, { toValue: v, duration: 50, useNativeDriver: true })),
-    ).start();
-  }
+  const scoreColor = score <= 1 ? c.danger : score === 2 ? c.warn : c.success;
 
   async function submit() {
+    if (busy) return;
     Keyboard.dismiss();
     const mail = email.trim();
+    setNotice(null);
     if (!mail.includes('@') || password.length < 6) {
+      warning();
       setError('Geçerli bir e-posta gir, şifre en az 6 karakter olsun.');
-      doShake();
       return;
     }
     setError(null);
     setBusy(true);
-    const creds = { email: mail, password };
-
-    if (mode === 'login') {
-      const { error: err } = await supabase.auth.signInWithPassword(creds);
-      if (err) {
-        setError(translateError(err.message));
-        doShake();
+    try {
+      const creds = { email: mail, password };
+      if (mode === 'login') {
+        const { error: err } = await supabase.auth.signInWithPassword(creds);
+        if (err) {
+          warning();
+          setError(translateError(err.message));
+        }
+      } else {
+        const { data, error: err } = await supabase.auth.signUp(creds);
+        if (err) {
+          warning();
+          setError(translateError(err.message));
+        } else if (!data.session) {
+          setNotice('Hesap oluşturuldu. Giriş için e-postana gelen doğrulama bağlantısına dokun.');
+        }
       }
-    } else {
-      const { data, error: err } = await supabase.auth.signUp(creds);
-      if (err) {
-        setError(translateError(err.message));
-        doShake();
-      } else if (!data.session) {
-        setError('Hesap oluşturuldu ama giriş için e-posta doğrulaması gerekiyor.');
-      }
+    } catch (e) {
+      warning();
+      setError(e instanceof Error ? translateError(e.message) : 'Bir şeyler ters gitti, tekrar dene.');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
-  const isSignup = mode === 'signup';
-
   return (
-    <View style={styles.flex}>
-      <Backdrop intensity={0.8} />
+    <View style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          {/* Boş alana dokununca klavye kapanır */}
-          <Pressable
-            style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          >
-            <FadeIn x={-14} y={0} duration={320}>
-              <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-                <Ionicons name="chevron-back" size={22} color={c.text} />
-              </Pressable>
-            </FadeIn>
+          <Pressable onPress={onBack} hitSlop={14} style={styles.back}>
+            <Ionicons name="chevron-back" size={26} color={c.text} />
+          </Pressable>
 
-            <Animated.View
-              style={{
-                opacity: heading,
-                transform: [{ translateY: heading.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
-              }}
-            >
-              <Text style={styles.title}>{isSignup ? 'Aramıza katıl' : 'Tekrar hoş geldin'}</Text>
-              <Text style={styles.subtitle}>
-                {isSignup ? 'Birkaç saniyede hesabını oluştur.' : 'Hesabınla giriş yap.'}
+          <Text style={styles.title}>{isSignup ? 'Hesap oluştur' : 'Giriş yap'}</Text>
+          <Text style={styles.subtitle}>
+            {isSignup ? 'E-posta ve şifrenle birkaç saniyede başla.' : 'Hesabınla devam et.'}
+          </Text>
+
+          <Text style={styles.label}>E-posta</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            placeholder="ornek@mail.com"
+            placeholderTextColor={c.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+          />
+
+          <Text style={styles.label}>Şifre</Text>
+          <View style={styles.pwWrap}>
+            <TextInput
+              ref={passwordRef}
+              value={password}
+              onChangeText={setPassword}
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="En az 6 karakter"
+              placeholderTextColor={c.muted}
+              secureTextEntry={!showPw}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType={isSignup ? 'newPassword' : 'password'}
+              returnKeyType="go"
+              onSubmitEditing={submit}
+            />
+            <Pressable onPress={() => setShowPw((v) => !v)} hitSlop={10} style={styles.eye}>
+              <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color={c.muted} />
+            </Pressable>
+          </View>
+
+          {isSignup ? (
+            <View style={styles.strengthRow}>
+              <View style={styles.bars}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={[styles.bar, { backgroundColor: password && i < score ? scoreColor : c.card2 }]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.strengthLabel, { color: password ? scoreColor : c.muted }]}>
+                {password ? SCORE_LABELS[score] : 'Şifre gücü'}
               </Text>
-            </Animated.View>
+            </View>
+          ) : null}
 
-            <Animated.Text
-              style={[
-                styles.hello,
-                {
-                  opacity: hello,
-                  transform: [{ translateY: hello.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-                },
-              ]}
-            >
-              Merhaba {nameGuess}
-            </Animated.Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-            <FadeIn delay={120} y={18}>
-              <Animated.View style={{ transform: [{ translateX: shake }] }}>
-                <AnimatedInput
-                  label="E-posta"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                />
-                <AnimatedInput
-                  ref={passwordRef}
-                  label="Şifre"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  textContentType={isSignup ? 'newPassword' : 'password'}
-                  returnKeyType="go"
-                  onSubmitEditing={submit}
-                />
+          <Pressable
+            onPress={submit}
+            disabled={busy}
+            style={({ pressed }) => [styles.primary, (pressed || busy) && { opacity: 0.85 }]}
+          >
+            {busy ? (
+              <ActivityIndicator color={c.bg} />
+            ) : (
+              <Text style={styles.primaryText}>{isSignup ? 'Hesap oluştur' : 'Giriş yap'}</Text>
+            )}
+          </Pressable>
 
-                {isSignup && (
-                  <View style={styles.strengthRow}>
-                    <View style={styles.strengthTrack}>
-                      <Animated.View
-                        style={[
-                          styles.strengthBar,
-                          {
-                            backgroundColor: scoreColors[score],
-                            width: strength.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.strengthLabel, { color: password ? scoreColors[score] : c.muted }]}>
-                      {password ? SCORE_LABELS[score] : 'Şifre gücü'}
-                    </Text>
-                  </View>
-                )}
-              </Animated.View>
-            </FadeIn>
-
-            {error ? (
-              <FadeIn y={6} duration={220}>
-                <Text style={styles.error}>{error}</Text>
-              </FadeIn>
-            ) : null}
-
-            <FadeIn delay={220} y={18}>
-              <AnimatedButton
-                title={isSignup ? 'Hesap oluştur' : 'Giriş yap'}
-                onPress={submit}
-                loading={busy}
-                style={{ marginTop: 8 }}
-              />
-
-              <Pressable
-                onPress={() => {
-                  setError(null);
-                  setMode(isSignup ? 'login' : 'signup');
-                }}
-                hitSlop={12}
-              >
-                <Text style={styles.switch}>
-                  {isSignup ? 'Zaten hesabın var mı? ' : 'Hesabın yok mu? '}
-                  <Text style={styles.switchStrong}>{isSignup ? 'Giriş yap' : 'Kayıt ol'}</Text>
-                </Text>
-              </Pressable>
-            </FadeIn>
+          <Pressable
+            onPress={() => {
+              setError(null);
+              setNotice(null);
+              setMode(isSignup ? 'login' : 'signup');
+            }}
+            hitSlop={12}
+          >
+            <Text style={styles.switch}>
+              {isSignup ? 'Zaten hesabın var mı? ' : 'Hesabın yok mu? '}
+              <Text style={styles.switchStrong}>{isSignup ? 'Giriş yap' : 'Hesap oluştur'}</Text>
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -247,28 +204,41 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    flex: { flex: 1, backgroundColor: c.bg },
-    scroll: { flexGrow: 1 },
-    content: { flexGrow: 1, paddingHorizontal: 24 },
-    backBtn: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+    root: { flex: 1, backgroundColor: c.bg },
+    flex: { flex: 1 },
+    scroll: { flexGrow: 1, paddingHorizontal: 24 },
+    back: { width: 44, height: 44, justifyContent: 'center', marginLeft: -8, marginBottom: 20 },
+    title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
+    subtitle: { color: c.muted, fontSize: 16, marginTop: 6, marginBottom: 28 },
+    label: { color: c.muted, fontSize: 13, fontWeight: '600', marginBottom: 8 },
+    input: {
+      height: 54,
+      borderRadius: 14,
       backgroundColor: c.card,
       borderWidth: 1,
       borderColor: c.border,
+      color: c.text,
+      fontSize: 16,
+      paddingHorizontal: 16,
+      marginBottom: 18,
+    },
+    pwWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+    eye: { position: 'absolute', right: 16, height: 54, justifyContent: 'center' },
+    strengthRow: { flexDirection: 'row', alignItems: 'center', marginTop: -6, marginBottom: 14 },
+    bars: { flex: 1, flexDirection: 'row' },
+    bar: { flex: 1, height: 5, borderRadius: 3, marginRight: 5 },
+    strengthLabel: { width: 74, textAlign: 'right', fontSize: 12, fontWeight: '700' },
+    error: { color: c.danger, fontSize: 14, lineHeight: 20, marginBottom: 12 },
+    notice: { color: c.success, fontSize: 14, lineHeight: 20, marginBottom: 12 },
+    primary: {
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: c.text,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 28,
+      marginTop: 6,
     },
-    title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
-    subtitle: { color: c.muted, fontSize: 16, marginTop: 6, marginBottom: 14 },
-    hello: { color: c.accentLight, fontSize: 15, fontWeight: '600', marginBottom: 16, minHeight: 20 },
-    strengthRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-    strengthTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-    strengthBar: { height: 6, borderRadius: 3 },
-    strengthLabel: { width: 74, textAlign: 'right', fontSize: 12, fontWeight: '700' },
-    error: { color: c.danger, fontSize: 14, marginBottom: 6, marginTop: 4 },
-    switch: { color: c.muted, textAlign: 'center', marginTop: 20, fontSize: 15 },
+    primaryText: { color: c.bg, fontSize: 17, fontWeight: '700' },
+    switch: { color: c.muted, textAlign: 'center', marginTop: 22, fontSize: 15 },
     switchStrong: { color: c.accentLight, fontWeight: '700' },
   });
