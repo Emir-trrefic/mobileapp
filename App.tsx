@@ -182,7 +182,7 @@ function AppShell() {
   }, [active]);
 
   // Durum çubuğu: koyu temada açık yazı, açık temada koyu yazı. Profil sekmesinde üstte fotoğraf olduğu için açık yazı.
-  const barStyle = c.scheme === 'dark' || (session && tab === 'profile' && !venueOpen) ? 'light' : 'dark';
+  const barStyle = c.scheme === 'dark' ? 'light' : 'dark';
 
   // ------------------------------------------------------------ ekranlar
 
@@ -298,7 +298,12 @@ function AppShell() {
       </Pane>
 
       <Pane visible={tab === 'profile'}>
-        <ProfileScreen profile={profile} connections={connections} onSaved={(p) => setProfile(p)} onSignOut={() => supabase.auth.signOut()} />
+        <ProfileScreen
+          profile={profile}
+          email={session?.user.email ?? ''}
+          onSaved={(p) => setProfile(p)}
+          onSignOut={() => supabase.auth.signOut()}
+        />
       </Pane>
 
       {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}

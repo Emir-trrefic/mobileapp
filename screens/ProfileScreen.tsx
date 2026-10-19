@@ -1,42 +1,158 @@
-import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  LayoutChangeEvent,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
 import ProfileView from '../components/ProfileView';
-import { FadeIn } from '../components/Transition';
 import { formatPhone } from '../lib/contact';
-import { tap } from '../lib/haptics';
+import { tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
-import { BRAND, useColors, useStyles } from '../lib/theme';
-import type { Palette } from '../lib/theme';
-import type { Connection, Profile } from '../lib/types';
+import { supabase } from '../lib/supabase';
+import { BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
+import type { Palette, ThemePref } from '../lib/theme';
+import type { Profile } from '../lib/types';
 import EditProfileScreen from './EditProfileScreen';
 
 type Props = {
   profile: Profile;
-  connections: Connection[];
+  email: string;
   onSaved: (p: Profile) => void;
   onSignOut: () => void;
 };
 
-export default function ProfileScreen({ profile, connections, onSaved, onSignOut }: Props) {
+// ---------------------------------------------------------------- küçük parçalar
+
+function Group({ title, footer, children }: { title?: string; footer?: string; children: ReactNode }) {
+  const styles = useStyles(makeStyles);
+  return (
+    <View style={styles.group}>
+      {title ? <Text style={styles.groupTitle}>{title}</Text> : null}
+      <View style={styles.groupBody}>{children}</View>
+      {footer ? <Text style={styles.groupFooter}>{footer}</Text> : null}
+    </View>
+  );
+}
+
+function Row({
+  label,
+  value,
+  onPress,
+  tone,
+  last,
+  placeholder,
+}: {
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  tone?: 'danger' | 'accent';
+  last?: boolean;
+  placeholder?: boolean;
+}) {
+  const c = useColors();
+  const styles = useStyles(makeStyles);
+  const color = tone === 'danger' ? c.danger : tone === 'accent' ? c.accentLight : c.text;
+  const content = (
+    <>
+      <Text style={[styles.rowLabel, { color }]}>{label}</Text>
+      {value ? (
+        <Text style={[styles.rowValue, placeholder && { color: c.warn }]} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {onPress && !tone ? <Ionicons name="chevron-forward" size={16} color={c.muted} style={{ marginLeft: 6 }} /> : null}
+    </>
+  );
+  return (
+    <>
+      {onPress ? (
+        <Pressable
+          onPress={() => {
+            tap();
+            onPress();
+          }}
+          style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.card2 }]}
+        >
+          {content}
+        </Pressable>
+      ) : (
+        <View style={styles.row}>{content}</View>
+      )}
+      {!last ? <View style={styles.sep} /> : null}
+    </>
+  );
+}
+
+const THEME_OPTIONS: { key: ThemePref; label: string }[] = [
+  { key: 'system', label: 'Sistem' },
+  { key: 'light', label: 'Açık' },
+  { key: 'dark', label: 'Koyu' },
+];
+
+function ThemeSwitch() {
+  const styles = useStyles(makeStyles);
+  const pref = useThemePref();
+  const [w, setW] = useState(0);
+  const x = useRef(new Animated.Value(0)).current;
+  const idx = THEME_OPTIONS.findIndex((o) => o.key === pref);
+  const seg = w > 0 ? (w - 4) / THEME_OPTIONS.length : 0;
+
+  useEffect(() => {
+    Animated.timing(x, { toValue: idx * seg, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [idx, seg, x]);
+
+  return (
+    <View style={styles.segment} onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}>
+      {seg > 0 ? <Animated.View style={[styles.segmentThumb, { width: seg, transform: [{ translateX: x }] }]} /> : null}
+      {THEME_OPTIONS.map((o) => (
+        <Pressable
+          key={o.key}
+          style={styles.segmentItem}
+          onPress={() => {
+            tap();
+            setThemePref(o.key);
+          }}
+        >
+          <Text style={[styles.segmentText, pref === o.key && styles.segmentTextOn]}>{o.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------- ekran
+
+export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
   const space = useTabBarSpace();
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const age = ageFrom(profile.birth_year);
-  const met = connections.filter((x) => x.status === 'accepted').length;
-  const sent = connections.filter((x) => x.direction === 'sent').length;
-  const got = connections.filter((x) => x.direction === 'received').length;
-
-  function openEdit() {
-    tap();
-    setEditing(true);
-  }
+  const interests = profile.interests ?? [];
+  const interestText =
+    interests.length === 0 ? 'Ekle' : interests.slice(0, 2).join(', ') + (interests.length > 2 ? ` +${interests.length - 2}` : '');
+  const edit = () => setEditing(true);
 
   function confirmSignOut() {
     Alert.alert('Çıkış yapılsın mı?', undefined, [
@@ -45,173 +161,116 @@ export default function ProfileScreen({ profile, connections, onSaved, onSignOut
     ]);
   }
 
-  function menu() {
-    tap();
-    Alert.alert(profile.display_name, undefined, [
-      { text: 'Profili düzenle', onPress: openEdit },
-      { text: 'Çıkış yap', style: 'destructive', onPress: confirmSignOut },
-      { text: 'Kapat', style: 'cancel' },
-    ]);
+  async function deleteAccount() {
+    setBusy(true);
+    try {
+      // Yüklenen fotoğrafları temizle (en iyi çabayla), sonra hesabı sil.
+      const files = await supabase.storage.from('avatars').list(profile.id);
+      const paths = (files.data ?? []).map((f) => `${profile.id}/${f.name}`);
+      if (paths.length > 0) await supabase.storage.from('avatars').remove(paths);
+      const { error } = await supabase.rpc('delete_account');
+      if (error) throw error;
+      setDeleting(false);
+      try {
+        await onSignOut();
+      } catch {
+        // hesap zaten silindi; oturum kapanmasa da uygulama girişe döner
+      }
+    } catch (e) {
+      warning();
+      Alert.alert('Hesap silinemedi', e instanceof Error ? e.message : 'Bir şeyler ters gitti, tekrar dene.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const handle = profile.instagram ? profile.instagram : profile.display_name.toLowerCase().replace(/\s+/g, '');
+  const canDelete = confirmText.trim().toLocaleUpperCase('tr-TR') === 'SİL' && !busy;
 
   return (
     <View style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: space + 24 }}>
-        {/* Üst çubuk */}
-        <View style={styles.topBar}>
-          <Ionicons name="lock-closed" size={15} color={c.text} />
-          <Text style={styles.handle} numberOfLines={1}>
-            {handle}
-          </Text>
-          <View style={{ flex: 1 }} />
-          <Pressable onPress={menu} hitSlop={10}>
-            <Ionicons name="menu" size={28} color={c.text} />
-          </Pressable>
-        </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: space + 24 }}
+      >
+        <Text style={styles.title}>Hesap</Text>
 
-        {/* Fotoğraf + sayılar */}
-        <FadeIn y={8}>
-          <View style={styles.head}>
-            <Pressable onPress={openEdit}>
-              <Avatar uri={profile.avatar_url} name={profile.display_name} size={92} ring />
-              {!profile.avatar_url ? (
-                <View style={styles.plus}>
-                  <Ionicons name="add" size={16} color="#fff" />
-                </View>
-              ) : null}
-            </Pressable>
-            <View style={styles.stats}>
-              <View style={styles.stat}>
-                <Text style={styles.statNum}>{met}</Text>
-                <Text style={styles.statLabel}>Tanıştığın</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statNum}>{sent}</Text>
-                <Text style={styles.statLabel}>Gönderilen</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statNum}>{got}</Text>
-                <Text style={styles.statLabel}>Gelen</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Ad, meslek, biyografi */}
-          <View style={styles.bioBlock}>
-            <Text style={styles.name}>
+        {/* Kimlik kartı */}
+        <Pressable
+          style={({ pressed }) => [styles.identity, pressed && { opacity: 0.85 }]}
+          onPress={() => {
+            tap();
+            edit();
+          }}
+        >
+          <Avatar uri={profile.avatar_url} name={profile.display_name} size={60} />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={styles.idName} numberOfLines={1}>
               {profile.display_name}
-              {age ? <Text style={styles.age}>{`, ${age}`}</Text> : null}
             </Text>
-            {profile.job ? <Text style={styles.job}>{profile.job}</Text> : null}
-            {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
-            {profile.interests.length > 0 ? (
-              <Text style={styles.tags}>{profile.interests.map((i) => `#${i.replace(/\s+/g, '')}`).join('  ')}</Text>
-            ) : null}
-            {profile.instagram ? (
-              <View style={styles.linkRow}>
-                <Ionicons name="link" size={14} color={c.accentLight} />
-                <Text style={styles.link}>instagram.com/{profile.instagram}</Text>
-              </View>
-            ) : null}
+            <Text style={styles.idMail} numberOfLines={1}>
+              {email || 'Hesabın'}
+            </Text>
           </View>
+          <Text style={styles.idEdit}>Düzenle</Text>
+        </Pressable>
 
-          {/* Düğmeler */}
-          <View style={styles.buttons}>
-            <Pressable style={styles.btn} onPress={openEdit}>
-              <Text style={styles.btnText}>Profili düzenle</Text>
-            </Pressable>
-            <Pressable
-              style={styles.btn}
-              onPress={() => {
-                tap();
-                setPreview(true);
-              }}
-            >
-              <Text style={styles.btnText}>Nasıl görünüyorum</Text>
-            </Pressable>
+        <Group
+          title="Tanışma isteğinde görünenler"
+          footer="Bu bilgileri yalnızca aynı kafede check-in yapmış kişiler görür."
+        >
+          <Row label="Fotoğraf" value={profile.avatar_url ? 'Eklendi' : 'Ekle'} placeholder={!profile.avatar_url} onPress={edit} />
+          <Row label="Ad" value={profile.display_name} onPress={edit} />
+          <Row label="Yaş" value={age ? String(age) : undefined} onPress={edit} />
+          <Row label="Meslek" value={profile.job || 'Ekle'} onPress={edit} />
+          <Row label="Hakkında" value={profile.bio ? profile.bio : 'Ekle'} onPress={edit} />
+          <Row label="İlgi alanları" value={interestText} onPress={edit} />
+          <Row label="Önizle" onPress={() => setPreview(true)} tone="accent" last />
+        </Group>
+
+        <Group
+          title="İletişim"
+          footer="Telefon ve Instagram yalnızca isteğini kabul ettiğin kişiyle paylaşılır. İstek kabul etmek için en az biri gerekli."
+        >
+          <Row
+            label="Telefon"
+            value={profile.phone ? formatPhone(profile.phone) : 'Ekle'}
+            placeholder={!profile.phone && !profile.instagram}
+            onPress={edit}
+          />
+          <Row
+            label="Instagram"
+            value={profile.instagram ? `@${profile.instagram}` : 'Ekle'}
+            placeholder={!profile.phone && !profile.instagram}
+            onPress={edit}
+            last
+          />
+        </Group>
+
+        <Group title="Görünüm">
+          <View style={styles.switchWrap}>
+            <ThemeSwitch />
           </View>
-        </FadeIn>
+        </Group>
 
-        {/* Öne çıkanlar: ilgi alanları */}
-        {profile.interests.length > 0 ? (
-          <FadeIn delay={120} y={8}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlights}>
-              {profile.interests.map((i) => (
-                <View key={i} style={styles.hl}>
-                  <View style={styles.hlCircle}>
-                    <Text style={styles.hlLetter}>{i[0]?.toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.hlLabel} numberOfLines={1}>
-                    {i}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </FadeIn>
-        ) : null}
+        <Group title="Gizlilik" footer="Kafeden ayrılınca ya da süre dolunca kimse seni göremez.">
+          <Row label="Kimler görebilir" value="Aynı kafedekiler" />
+          <Row label="Görünür kalma süresi" value="3 saat" last />
+        </Group>
 
-        <View style={styles.divider} />
+        <Group title="Hesap">
+          <Row label="Çıkış yap" onPress={confirmSignOut} tone="accent" />
+          <Row
+            label="Hesabı sil"
+            onPress={() => {
+              setConfirmText('');
+              setDeleting(true);
+            }}
+            tone="danger"
+            last
+          />
+        </Group>
 
-        {/* Liste: ayarlar tarzı satırlar */}
-        <FadeIn delay={180} y={8}>
-          <Pressable style={styles.item} onPress={openEdit}>
-            <View style={styles.itemIcon}>
-              <Ionicons name="call-outline" size={21} color={c.text} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>İletişim bilgilerin</Text>
-              {profile.phone || profile.instagram ? (
-                <Text style={styles.itemSub}>
-                  {[profile.instagram ? `@${profile.instagram}` : null, profile.phone ? formatPhone(profile.phone) : null]
-                    .filter(Boolean)
-                    .join('  ·  ')}
-                </Text>
-              ) : (
-                <Text style={[styles.itemSub, { color: c.warn }]}>Eklenmedi. İstek kabul etmek için gerekli</Text>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={c.muted} />
-          </Pressable>
-
-          {!profile.avatar_url ? (
-            <Pressable style={styles.item} onPress={openEdit}>
-              <View style={styles.itemIcon}>
-                <Ionicons name="image-outline" size={21} color={c.text} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>Fotoğraf ekle</Text>
-                <Text style={styles.itemSub}>Fotoğraflı profiller daha çok istek alır</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.muted} />
-            </Pressable>
-          ) : null}
-
-          <View style={styles.item}>
-            <View style={styles.itemIcon}>
-              <Ionicons name="eye-off-outline" size={21} color={c.text} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>Gizli hesap</Text>
-              <Text style={styles.itemSub}>
-                Seni sadece aynı kafede check-in yapmış kişiler görür. Ayrılınca ya da 3 saat sonra görünmez olursun.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.item}>
-            <View style={styles.itemIcon}>
-              <Ionicons name="shield-checkmark-outline" size={21} color={c.text} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>İletişim bilgin korunur</Text>
-              <Text style={styles.itemSub}>Telefon ve Instagram’ını sadece isteğini kabul ettiğin kişi görür.</Text>
-            </View>
-          </View>
-
-          <Text style={styles.footer}>{BRAND} · v0.4</Text>
-        </FadeIn>
+        <Text style={styles.footer}>{BRAND} · Sürüm 0.4</Text>
       </ScrollView>
 
       <Modal visible={editing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditing(false)}>
@@ -227,7 +286,7 @@ export default function ProfileScreen({ profile, connections, onSaved, onSignOut
               age={age}
               job={profile.job}
               bio={profile.bio}
-              interests={profile.interests}
+              interests={interests}
               photo={profile.avatar_url}
               overlay={
                 <View style={styles.previewTop}>
@@ -243,6 +302,40 @@ export default function ProfileScreen({ profile, connections, onSaved, onSignOut
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Hesap silme onayı */}
+      <Modal visible={deleting} transparent animationType="fade" onRequestClose={() => !busy && setDeleting(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.dialogWrap}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => !busy && setDeleting(false)} />
+          <View style={styles.dialog}>
+            <Text style={styles.dialogTitle}>Hesabı sil</Text>
+            <Text style={styles.dialogText}>
+              Profilin, check-in kayıtların ve tüm tanışma isteklerin kalıcı olarak silinir. Bu işlem geri alınamaz.
+            </Text>
+            <Text style={styles.dialogHint}>Onaylamak için SİL yaz.</Text>
+            <TextInput
+              value={confirmText}
+              onChangeText={setConfirmText}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholder="SİL"
+              placeholderTextColor={c.muted}
+              style={styles.dialogInput}
+              editable={!busy}
+            />
+            <Pressable
+              style={[styles.dangerBtn, !canDelete && { opacity: 0.4 }]}
+              disabled={!canDelete}
+              onPress={deleteAccount}
+            >
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.dangerBtnText}>Hesabı kalıcı olarak sil</Text>}
+            </Pressable>
+            <Pressable style={styles.cancelBtn} disabled={busy} onPress={() => setDeleting(false)}>
+              <Text style={styles.cancelText}>Vazgeç</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -250,90 +343,89 @@ export default function ProfileScreen({ profile, connections, onSaved, onSignOut
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48 },
-    handle: { color: c.text, fontSize: 21, fontWeight: '800', letterSpacing: -0.3, marginLeft: 6, flexShrink: 1 },
-    head: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
-    plus: {
-      position: 'absolute',
-      right: 0,
-      bottom: 2,
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: c.pink,
-      borderWidth: 3,
-      borderColor: c.bg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', marginLeft: 12 },
-    stat: { alignItems: 'center' },
-    statNum: { color: c.text, fontSize: 19, fontWeight: '800' },
-    statLabel: { color: c.text, fontSize: 13, marginTop: 2 },
-    bioBlock: { paddingHorizontal: 16, paddingTop: 14 },
-    name: { color: c.text, fontSize: 15, fontWeight: '800' },
-    age: { fontWeight: '400' },
-    job: { color: c.muted, fontSize: 14, marginTop: 1 },
-    bio: { color: c.text, fontSize: 14.5, lineHeight: 20, marginTop: 4 },
-    tags: { color: c.accentLight, fontSize: 14.5, lineHeight: 20, marginTop: 4 },
-    linkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-    link: { color: c.accentLight, fontSize: 14.5, fontWeight: '600', marginLeft: 4 },
-    buttons: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 14 },
-    btn: {
-      flex: 1,
-      height: 36,
-      borderRadius: 9,
-      backgroundColor: c.card2,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginHorizontal: 3,
-    },
-    btnText: { color: c.text, fontSize: 14, fontWeight: '700' },
-    highlights: { paddingHorizontal: 12, paddingTop: 16 },
-    hl: { width: 78, alignItems: 'center', marginHorizontal: 2 },
-    hlCircle: {
-      width: 62,
-      height: 62,
-      borderRadius: 31,
-      borderWidth: 1.5,
-      borderColor: c.border,
-      backgroundColor: c.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    hlLetter: { color: c.accentLight, fontSize: 22, fontWeight: '800' },
-    hlLabel: { color: c.text, fontSize: 12.5, marginTop: 6, maxWidth: 74 },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginTop: 20, marginBottom: 6 },
-    item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-    itemIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: c.card2,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 14,
-    },
-    itemTitle: { color: c.text, fontSize: 15, fontWeight: '700' },
-    itemSub: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 2, paddingRight: 8 },
-    footer: { color: c.muted, opacity: 0.7, fontSize: 12, textAlign: 'center', marginTop: 22 },
-    previewTop: {
-      position: 'absolute',
-      top: 16,
-      left: 16,
-      right: 16,
+    title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8, paddingHorizontal: 20, marginBottom: 16 },
+
+    identity: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
+      marginHorizontal: 16,
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
     },
+    idName: { color: c.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
+    idMail: { color: c.muted, fontSize: 13.5, marginTop: 2 },
+    idEdit: { color: c.accentLight, fontSize: 15, fontWeight: '600', marginLeft: 8 },
+
+    group: { marginTop: 26 },
+    groupTitle: {
+      color: c.muted,
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginHorizontal: 20,
+      marginBottom: 8,
+    },
+    groupBody: {
+      marginHorizontal: 16,
+      borderRadius: 16,
+      backgroundColor: c.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      overflow: 'hidden',
+    },
+    groupFooter: { color: c.muted, fontSize: 12.5, lineHeight: 17, marginHorizontal: 20, marginTop: 8 },
+    row: { minHeight: 50, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+    rowLabel: { fontSize: 16, flexShrink: 0 },
+    rowValue: { flex: 1, textAlign: 'right', color: c.muted, fontSize: 15, marginLeft: 16 },
+    sep: { height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginLeft: 16 },
+
+    switchWrap: { padding: 8 },
+    segment: { height: 38, borderRadius: 10, backgroundColor: c.card2, flexDirection: 'row', padding: 2 },
+    segmentThumb: {
+      position: 'absolute',
+      top: 2,
+      left: 2,
+      bottom: 2,
+      borderRadius: 8,
+      backgroundColor: c.scheme === 'dark' ? c.border : c.card,
+      shadowColor: c.shadow,
+      shadowOpacity: c.scheme === 'dark' ? 0 : 0.12,
+      shadowRadius: 3,
+      shadowOffset: { width: 0, height: 1 },
+    },
+    segmentItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    segmentText: { color: c.muted, fontSize: 14, fontWeight: '600' },
+    segmentTextOn: { color: c.text },
+
+    footer: { color: c.muted, opacity: 0.7, fontSize: 12, textAlign: 'center', marginTop: 28 },
+
+    previewTop: { position: 'absolute', top: 16, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     previewChip: { backgroundColor: c.scrim, borderRadius: 16, paddingVertical: 7, paddingHorizontal: 12 },
     previewChipText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-    previewClose: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: c.scrim,
-      alignItems: 'center',
-      justifyContent: 'center',
+    previewClose: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.scrim, alignItems: 'center', justifyContent: 'center' },
+
+    dialogWrap: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.55)' },
+    dialog: { backgroundColor: c.card, borderRadius: 22, padding: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
+    dialogTitle: { color: c.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+    dialogText: { color: c.muted, fontSize: 14.5, lineHeight: 21, marginTop: 8 },
+    dialogHint: { color: c.text, fontSize: 14, fontWeight: '600', marginTop: 16 },
+    dialogInput: {
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: c.card2,
+      color: c.text,
+      fontSize: 16,
+      fontWeight: '700',
+      letterSpacing: 2,
+      paddingHorizontal: 14,
+      marginTop: 8,
     },
+    dangerBtn: { height: 50, borderRadius: 14, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+    dangerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    cancelBtn: { height: 46, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+    cancelText: { color: c.text, fontSize: 16, fontWeight: '600' },
   });

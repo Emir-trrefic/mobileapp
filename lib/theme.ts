@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { useColorScheme } from 'react-native';
+import { useMemo, useSyncExternalStore } from 'react';
+import { Appearance, useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const BRAND = 'Burada';
 
@@ -105,7 +106,50 @@ export const photoShade = ['rgba(8,8,20,0)', 'rgba(8,8,20,0.9)'] as const;
 
 export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 };
 
-// Telefonun açık/koyu ayarını otomatik takip eder (elle bir düğme yok).
+// Görünüm tercihi: telefonun ayarını izle (varsayılan), ya da elle açık / koyu seç.
+export type ThemePref = 'system' | 'light' | 'dark';
+const PREF_KEY = 'burada.theme';
+let themePref: ThemePref = 'system';
+const listeners = new Set<() => void>();
+
+function applyPref(p: ThemePref) {
+  try {
+    Appearance.setColorScheme(p === 'system' ? null : p);
+  } catch {
+    // eski sürümlerde yok sayılır
+  }
+}
+
+export function setThemePref(p: ThemePref) {
+  themePref = p;
+  applyPref(p);
+  listeners.forEach((l) => l());
+  AsyncStorage.setItem(PREF_KEY, p).catch(() => {});
+}
+
+export function useThemePref(): ThemePref {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => {
+        listeners.delete(cb);
+      };
+    },
+    () => themePref,
+  );
+}
+
+AsyncStorage.getItem(PREF_KEY)
+  .then((v) => {
+    if (v === 'light' || v === 'dark' || v === 'system') {
+      themePref = v;
+      applyPref(v);
+      listeners.forEach((l) => l());
+    }
+  })
+  .catch(() => {});
+
+// Etkin tema: tercih sistemse telefonun ayarı, değilse seçilen.
 export function useColors(): Palette {
   const scheme = useColorScheme();
   return scheme === 'light' ? lightColors : darkColors;
