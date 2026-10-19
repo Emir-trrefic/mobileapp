@@ -59,25 +59,20 @@ Gizlilik: telefon/Instagram sadece `my_connections()` üzerinden, sadece kabul e
 - **Mesajlar**: hikaye şeridi (tanıştıkların), "Gelen istekler" (Kabul et / Reddet), "Mesajlar" listesi; tanışılan kişiye dokununca iletişim sayfası (Instagram, telefon, WhatsApp).
 - **Profil = Hesap**: kimlik kartı, "Tanışma isteğinde görünenler" (fotoğraf, ad, yaş, meslek, hakkında, ilgi alanları, Önizle), İletişim, Görünüm (tema), Gizlilik, Hesap (çıkış, hesabı sil; "SİL" yazarak onay).
 
-## 7. ŞU ANKİ SORUN (en önemli)
+## 7. Çözülen sorun: giriş ekranında boş ekran (Sürüm 0.6)
 
-Telefonda (Expo Go) "Giriş yap" / "Hesap oluştur" düğmesine basınca **boş ekran** geliyor. Ekran görüntüsünde zemin rengi tam `#F4F6FA` (açık tema `bg`), yani React bir şey çiziyor ama içerik görünmüyor; hata ekranı da çıkmıyor.
+Neden: `App.tsx` içindeki `fill` stili `StyleSheet.absoluteFillObject` kullanıyordu; bu alan React Native 0.86'da yok. Stil boş `{}` kalıyor, Giriş/Kayıt (ve Onboarding) ekranını saran View yüksekliksiz oluyordu. Hata fırlatmadığı için hata ekranı da çıkmıyordu. Düzeltme: açık `position: 'absolute', top/left/right/bottom: 0`.
 
-Denenenler (hiçbiri sonucu kesin değiştirmedi):
-- Auth geçişindeki `FadeIn` animasyonu kaldırıldı.
-- AuthScreen sıfırdan, animasyonsuz yazıldı.
-- Kök `ErrorBoundary` + global hata yakalama eklendi (render ve yakalanmayan hatalar yazıyla gösterilir).
-- Karşılamaya "Sürüm 0.5" etiketi eklendi: bu yazı görünmüyorsa telefon eski kodu çalıştırıyordur.
+Ayrıca: `Appearance.setColorScheme(null)` → `'unspecified'`; `package.json` SDK 57'ye sabitlendi (eksik `expo-haptics`, `expo-image-picker`, `expo-linear-gradient`, `@expo/vector-icons` eklendi). `tsc --noEmit` hatasız.
 
-Sonraki adımlar:
-1. Codespace'te `git pull`, Expo'yu `npx expo start --tunnel -c` ile yeniden başlat, Expo Go'yu tamamen kapatıp QR'ı yeniden tara.
-2. "Sürüm 0.5" yazısı görünüyor mu kontrol et.
-3. Düğmeye basınca Codespace terminalindeki ERROR/WARN satırlarına ve ekrandaki hata metnine bak.
-4. Sorun sürerse Xcode iPhone Simulator + Expo Go ile aynı Metro'ya (tünel) bağlanıp hatayı büyük ekranda yakala (konum da Simulator'dan ayarlanabilir).
-5. Şüpheliler: tema/`Appearance` kodu (`lib/theme.ts`), Expo Go önbelleği, App.tsx'teki oturum/giriş akışı, `app.json` yerel değişikliği (Codespace'te `app.json` ve `package.json` yerel değişiklikli, repoya itilmedi).
+Codespace'te güncellemek için (yerel `package.json` değişikliği çekmeyi engeller):
+```
+git checkout -- package.json && git pull && npm install && npx expo start --tunnel -c
+```
+Karşılamada "Sürüm 0.6" görünmeli.
 
 ## 8. Önemli notlar
 
-- Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Sadece sözdizimi ve import kontrolü yapıldı; tip kontrolü (`tsc`) yapılmadı. İlk gerçek test telefonda.
+- Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.
 - Hızlı görsel önizleme için HTML demo yayınlandı (Artifact: https://claude.ai/artifact/DCYP6bsa7Cpc2a8aqBdtfc). Bu demo gerçek uygulama değil, tasarımın tıklanabilir taklidi.
-- Yapılacaklar: gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme (şu an herkes yönetici), `package.json` sürümlerini sabitleyip repoya itme, tip kontrolü.
+- Yapılacaklar: gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme (şu an herkes yönetici), `app.json` yerel değişikliğini repoya almak.
