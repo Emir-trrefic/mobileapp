@@ -280,7 +280,7 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
 
       {/* Alt: başlık + butonlar */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
-        <Animated.Text style={[styles.title, title]}>Aynı mekandaki{'\n'}insanlarla tanış.</Animated.Text>
+        <Animated.Text style={[styles.title, title]}>Aynı kafedeki{'\n'}insanlarla tanış.</Animated.Text>
         <Animated.Text style={[styles.sub, sub]}>
           Check-in yap, sadece o an orada olanları gör. Mekandan çıkınca kimse seni görmez.
         </Animated.Text>
