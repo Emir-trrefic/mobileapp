@@ -9,6 +9,7 @@ export type Venue = {
   radius_m: number;
   distance_m: number;
   active_count: number;
+  is_demo?: boolean; // test için eklenen demo kafe
 };
 
 export type ActiveCheckin = {

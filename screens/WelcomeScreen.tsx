@@ -48,9 +48,9 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
           <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.mark}>
             <Ionicons name="cafe" size={44} color="#fff" />
           </LinearGradient>
-          <Text style={styles.brand}>{BRAND}</Text>
+          {BRAND ? <Text style={styles.brand}>{BRAND}</Text> : null}
         </Animated.View>
-        <Animated.Text style={[styles.tagline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
+        <Animated.Text style={[styles.tagline, !BRAND && styles.headline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
@@ -69,7 +69,7 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
             )}
           </Pressable>
         ) : null}
-        <Text style={styles.version}>Sürüm 0.8 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        <Text style={styles.version}>Sürüm 0.9 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );
@@ -82,6 +82,7 @@ const makeStyles = (c: Palette) =>
     mark: { width: 96, height: 96, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
     brand: { color: c.text, fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 22 },
     tagline: { color: c.muted, fontSize: 16, marginTop: 10 },
+    headline: { color: c.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 26 },
     bottom: { paddingHorizontal: 28 },
     quick: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
     quickText: { color: c.accentLight, fontSize: 15, fontWeight: '700' },

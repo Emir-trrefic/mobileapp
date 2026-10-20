@@ -263,6 +263,21 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           <Row label="Görünür kalma süresi" value="3 saat" last />
         </Group>
 
+        {__DEV__ ? (
+          <Group title="Test" footer="Sadece geliştirme sürümünde görünür.">
+            <Row
+              label="Eklediğim demo kafeleri kaldır"
+              tone="danger"
+              last
+              onPress={async () => {
+                const { data, error } = await supabase.rpc('clear_my_demo_cafes');
+                if (error) Alert.alert('Kaldırılamadı', error.message);
+                else Alert.alert('Tamam', `${data ?? 0} demo kafe kaldırıldı. Haritada yenile düğmesine bas.`);
+              }}
+            />
+          </Group>
+        ) : null}
+
         <Group title="Hesap">
           <Row label="Çıkış yap" onPress={confirmSignOut} tone="accent" />
           <Row
@@ -276,7 +291,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND} · Sürüm 0.8</Text>
+        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.9</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

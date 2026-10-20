@@ -125,7 +125,7 @@ export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void
             transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
           }}
         >
-          <Text style={styles.brand}>{BRAND}</Text>
+          {BRAND ? <Text style={styles.brand}>{BRAND}</Text> : null}
           <Text style={styles.tagline}>Aynı kafedeki insanlarla tanış.</Text>
         </Animated.View>
       </Animated.View>
@@ -139,5 +139,5 @@ const styles = StyleSheet.create({
   piece: { position: 'absolute', width: HALF, height: HALF },
   iconWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   brand: { color: '#F4F6FB', fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 24 },
-  tagline: { color: '#93A0BF', fontSize: 16, marginTop: 8 },
+  tagline: { color: '#93A0BF', fontSize: 16, marginTop: BRAND ? 8 : 26 },
 });

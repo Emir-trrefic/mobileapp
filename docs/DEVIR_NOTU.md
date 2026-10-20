@@ -1,10 +1,10 @@
-# Burada: devir notu
+# Devir notu
 
 Başka bir sohbette kaldığın yerden devam etmek için. Güncel kod: GitHub `Emir-trrefic/mobileapp`, `main` dalı.
 
 ## 1. Proje
 
-Burada: mekan odaklı tanışma uygulaması (React Native, Expo SDK 57, TypeScript; arka uç Supabase: Auth, Postgres + PostGIS, Storage).
+Mekan odaklı tanışma uygulaması (adı henüz belli değil; `lib/theme.ts` içindeki `BRAND` boş, karar verilince oraya yazılacak) (React Native, Expo SDK 57, TypeScript; arka uç Supabase: Auth, Postgres + PostGIS, Storage).
 
 Akış:
 - Sadece **kafeler** mekandır.
@@ -36,12 +36,13 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
+- 006: demo kafeler. venues.is_demo + created_by, coğrafi indeks; Kadıköy merkezine sabit 10 demo kafe; seed_demo_cafes(lat,lng) (kullanıcının yanına 10 demo, eskilerini değiştirir), clear_my_demo_cafes(), clear_all_demo_cafes() (yönetici); venues_nearby artık is_demo döndürüyor; add_venue ekleyeni kaydediyor. Yayından önce demo kafeler temizlenmeli ve seed_demo_cafes yetkisi kaldırılmalı.
 
 Gizlilik: telefon/Instagram sadece `my_connections()` üzerinden, sadece kabul edilmiş ve isteği GÖNDEREN kişiye döner. RLS açık, fonksiyonlar SECURITY DEFINER, anon yetkisi yok.
 
@@ -80,6 +81,11 @@ git checkout -- package.json app.json && git pull && npm install && npx expo sta
 Not: yeni hesaplar (hızlı giriş dahil) yönetici değil, bu yüzden haritada "+" (kafe ekle) görünmez. Test için 002 dosyasının sonundaki `insert into public.admins ...` satırını SQL Editor'de tekrar çalıştır.
 
 Simülatörde test: Xcode kurulu. Konum: `xcrun simctl location booted set 40.9903,29.0290`. Ekran klavyesi için donanım klavyesi kapatıldı.
+
+Sürüm 0.9:
+- İsim kaldırıldı: karşılama/açılış/profil/harita "Burada" yazmıyor (karar verilecek). `app.json` adı "mobileapp".
+- Harita Apple Haritalar (iOS'ta react-native-maps varsayılanı, provider verilmiyor). İki parmakla ve sağ üstteki +/− düğmeleriyle yakınlaştırma.
+- Demo kafeler: haritada kafe yoksa (geliştirme modunda) "Yakınıma 10 demo kafe ekle"; kartlarda DEMO etiketi; Profil > Test > "Eklediğim demo kafeleri kaldır".
 
 ## 8. Önemli notlar
 

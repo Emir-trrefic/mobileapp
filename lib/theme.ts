@@ -2,7 +2,8 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const BRAND = 'Burada';
+// Uygulamanın adı henüz belli değil; karar verilince buraya yazılır, isim gösteren her yer buradan okur.
+export const BRAND: string | null = null;
 
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];

@@ -14,7 +14,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+// iOS'ta varsayılan sağlayıcı Apple Haritalar'dır (provider verilmez; Google Haritalar kullanılmaz).
 import MapView, { Marker } from 'react-native-maps';
+import type { Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
@@ -26,7 +28,7 @@ import { success, tap } from '../lib/haptics';
 import { qualityOf, useGps } from '../lib/location';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { supabase } from '../lib/supabase';
-import { BRAND, useColors, useStyles } from '../lib/theme';
+import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, Venue } from '../lib/types';
 import { categoryIcon, fmtDistance } from '../lib/venue';
@@ -139,9 +141,16 @@ function VenueCard({
             <Ionicons name={categoryIcon(venue.category)} size={24} color={c.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardName} numberOfLines={1}>
-              {venue.name}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.cardName, { flexShrink: 1 }]} numberOfLines={1}>
+                {venue.is_demo ? venue.name.replace(/^Demo · /, '') : venue.name}
+              </Text>
+              {venue.is_demo ? (
+                <View style={styles.demoTag}>
+                  <Text style={styles.demoTagText}>DEMO</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.cardMeta}>
               {fmtDistance(distance)} · {inRange ? 'check-in için yakınsın' : 'uzakta'}
             </Text>
@@ -196,6 +205,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const region = useRef<Region | null>(null); // haritanın o anki görünümü (yakınlaştırma düğmeleri için)
 
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
     const { data, error } = await supabase.rpc('venues_nearby', { p_lat: lat, p_lng: lng, p_max_m: 2500 });
@@ -274,6 +285,40 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       { latitude: coords.lat - 0.0011, longitude: coords.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
       500,
     );
+  }
+
+  // Yakınlaştır / uzaklaştır: görünen alanı yarıya indirir ya da iki katına çıkarır.
+  function zoom(factor: number) {
+    const r =
+      region.current ??
+      (coords ? { latitude: coords.lat - 0.0011, longitude: coords.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 } : null);
+    if (!r) return;
+    tap();
+    const d = (x: number) => Math.min(60, Math.max(0.0008, x * factor));
+    mapRef.current?.animateToRegion(
+      { latitude: r.latitude, longitude: r.longitude, latitudeDelta: d(r.latitudeDelta), longitudeDelta: d(r.longitudeDelta) },
+      280,
+    );
+  }
+
+  // Test için: bulunduğun yerin çevresine 10 demo kafe ekler (sunucu eskilerini silip yenilerini koyar).
+  async function seedDemo() {
+    if (!coords || seeding) return;
+    setSeeding(true);
+    const { error } = await supabase.rpc('seed_demo_cafes', { p_lat: coords.lat, p_lng: coords.lng });
+    setSeeding(false);
+    if (error) {
+      Alert.alert(
+        'Demo kafeler eklenemedi',
+        error.message.includes('seed_demo_cafes')
+          ? 'Önce Supabase SQL Editor’de supabase/migrations/006_demo_kafeler.sql dosyasını çalıştır.'
+          : error.message,
+      );
+      return;
+    }
+    success();
+    anchor.current = null;
+    await fetchVenues(coords.lat, coords.lng);
   }
 
   async function checkIn(v: Venue) {
@@ -370,7 +415,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const quality = qualityOf(accuracy);
   const gpsColor = quality === 'good' ? c.success : quality === 'ok' ? c.warn : c.danger;
 
-  const region = {
+  const startRegion = {
     latitude: coords.lat - 0.0011,
     longitude: coords.lng,
     latitudeDelta: 0.006,
@@ -382,7 +427,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={region}
+        initialRegion={startRegion}
+        onRegionChangeComplete={(r) => {
+          region.current = r;
+        }}
+        zoomEnabled
+        scrollEnabled
+        rotateEnabled={false}
         showsUserLocation
         showsPointsOfInterests={false}
         showsBuildings={false}
@@ -407,7 +458,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
         <View style={styles.brandChip}>
           <View style={[styles.brandDot, { backgroundColor: gpsColor }]} />
-          <Text style={styles.brandText}>{BRAND}</Text>
+          <Text style={styles.brandText}>GPS</Text>
           <Text style={styles.gpsText}>±{Math.round(gps.fix?.accuracy ?? 0)} m</Text>
         </View>
         <View style={styles.topButtons}>
@@ -438,6 +489,17 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         </FadeIn>
       ) : null}
 
+      {/* Yakınlaştırma (iki parmakla da büyütüp küçültülebilir) */}
+      <View style={[styles.zoomWrap, { top: insets.top + (active ? 116 : 64) }]}>
+        <Pressable style={styles.zoomBtn} onPress={() => zoom(0.5)} hitSlop={4}>
+          <Ionicons name="add" size={22} color={c.text} />
+        </Pressable>
+        <View style={styles.zoomSep} />
+        <Pressable style={styles.zoomBtn} onPress={() => zoom(2)} hitSlop={4}>
+          <Ionicons name="remove" size={22} color={c.text} />
+        </Pressable>
+      </View>
+
       {/* Alt: mekan kartları */}
       <FadeIn y={40} delay={250} duration={520} style={[styles.carouselWrap, { bottom: space + 4 }]}>
         {venues.length === 0 ? (
@@ -456,6 +518,17 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
             ) : (
               <AnimatedButton title="Yenile" variant="soft" icon="refresh" onPress={reload} style={{ marginTop: 14 }} />
             )}
+            {__DEV__ ? (
+              <AnimatedButton
+                title="Yakınıma 10 demo kafe ekle"
+                icon="cafe"
+                variant="ghost"
+                onPress={seedDemo}
+                loading={seeding}
+                delay={120}
+                style={{ marginTop: 10 }}
+              />
+            ) : null}
           </View>
         ) : (
           <FlatList
@@ -639,4 +712,23 @@ const makeStyles = (c: Palette) =>
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10 },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     liveCount: { color: c.text, fontSize: 14, fontWeight: '600' },
+    nameRow: { flexDirection: 'row', alignItems: 'center' },
+    demoTag: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: c.accentSoft },
+    demoTagText: { color: c.accentLight, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+    zoomWrap: {
+      position: 'absolute',
+      right: 16,
+      width: 44,
+      borderRadius: 22,
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.border,
+      overflow: 'hidden',
+      shadowColor: c.shadow,
+      shadowOpacity: c.shadowOpacity * 0.6,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    zoomBtn: { height: 46, alignItems: 'center', justifyContent: 'center' },
+    zoomSep: { height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginHorizontal: 8 },
   });
