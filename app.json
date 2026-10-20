@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobileapp",
+    "name": "Burada",
     "slug": "mobileapp",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -14,7 +14,13 @@
         {
           "locationWhenInUsePermission": "Bulundugun mekani bulmak ve orada olan kisileri gostermek icin konumun kullanilir."
         }
-      ]
-    ]
+      ],
+      "expo-status-bar"
+    ],
+    "backgroundColor": "#081028",
+    "splash": {
+      "backgroundColor": "#081028",
+      "resizeMode": "contain"
+    }
   }
 }

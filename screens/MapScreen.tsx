@@ -325,7 +325,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
               text: 'Konum iznini Ayarlar’dan açman gerekiyor. Konumun sadece check-in’i doğrulamak için kullanılır, başkalarına gösterilmez.',
             }
           : st === 'error'
-            ? { title: 'Konum alınamadı', text: 'GPS şu an yanıt vermiyor. Açık bir alanda tekrar dene.' }
+            ? {
+                title: 'Konum alınamadı',
+                text: 'GPS şu an yanıt vermiyor. Konum servislerinin açık olduğundan emin ol, açık bir alanda tekrar dene.',
+              }
             : {
                 title: 'Konum iznine ihtiyacımız var',
                 text: 'Yakınındaki kafeleri göstermek ve check-in yaptığını doğrulamak için konumunu kullanıyoruz. Konumun başkalarına gösterilmez.',
@@ -381,6 +384,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         style={StyleSheet.absoluteFill}
         initialRegion={region}
         showsUserLocation
+        showsPointsOfInterests={false}
+        showsBuildings={false}
         showsCompass={false}
         showsMyLocationButton={false}
         pitchEnabled={false}

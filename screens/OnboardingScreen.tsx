@@ -3,8 +3,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +20,7 @@ import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
 import { parseContact } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
+import { useKeyboardHeight } from '../lib/keyboard';
 import { useInsets } from '../lib/layout';
 import {
   INTERESTS,
@@ -51,6 +50,8 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
+  const keyboard = useKeyboardHeight();
+  const scrollRef = useRef<ScrollView>(null);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1); // 1 ileri, -1 geri
   const [name, setName] = useState(initial?.display_name ?? '');
@@ -170,6 +171,11 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     setStep((s) => s + 1);
   }
 
+  // Alttaki alan odaklanınca klavyenin üstünde görünsün diye sayfayı sona kaydır.
+  function revealEnd() {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 280);
+  }
+
   function back() {
     Keyboard.dismiss();
     if (step > 0) {
@@ -185,7 +191,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     { t: 'Nelerden hoşlanıyorsun?', s: `En az ${MIN_INTERESTS}, en fazla ${MAX_INTERESTS} tane seç.` },
     {
       t: 'İletişim bilgin',
-      s: 'Biri tanışma isteğini kabul ettiğinde onun gönderdiği kişiye bu bilgiler gösterilir. Başka kimse göremez. İkisinden birini yazman yeterli.',
+      s: 'Sadece tanışma isteğini kabul ettiğin kişi görür. Birini yazman yeterli.',
     },
     { t: 'Biraz kendinden bahset', s: 'İkisi de isteğe bağlı, istersen boş geç.' },
   ];
@@ -193,7 +199,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   return (
     <View style={styles.flex}>
       <Backdrop intensity={0.7} />
-      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.root}>
         {/* Üst çubuk */}
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           <View style={styles.topRow}>
@@ -220,6 +226,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={styles.flex}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -323,6 +330,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                 />
                 <AnimatedInput
                   ref={instaRef}
+                  onFocus={revealEnd}
                   label="Instagram (örn. @kullaniciadi)"
                   value={insta}
                   onChangeText={setInsta}
@@ -353,6 +361,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                 />
                 <AnimatedInput
                   ref={bioRef}
+                  onFocus={revealEnd}
                   tall
                   label="Kısa tanıtım (isteğe bağlı)"
                   value={bio}
@@ -383,7 +392,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         </ScrollView>
 
         {/* Alt buton */}
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + 14 }]}>
+        <View style={[styles.bottom, { paddingBottom: keyboard > 0 ? keyboard + 10 : insets.bottom + 14 }]}>
           <AnimatedButton
             title={step === STEPS - 1 ? 'Bitir ve haritaya geç' : step === 2 && !photoUri ? 'Şimdilik geç' : 'Devam'}
             variant={step === 2 && !photoUri ? 'soft' : 'primary'}
@@ -391,10 +400,11 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
             iconRight={step !== STEPS - 1}
             disabled={!canNext}
             loading={busy}
+            leave={step < STEPS - 1 && canNext}
             onPress={next}
           />
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

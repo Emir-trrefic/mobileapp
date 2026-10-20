@@ -123,6 +123,24 @@ export function LocationProvider({ children }: { children: ReactNode }) {
           },
         );
       }
+
+      // Canlı takip bir süre konum vermezse (kapalı alan, ilk açılış) tek seferlik ölçüm dene;
+      // o da olmazsa "Konum alınamadı" ekranı ve "Tekrar dene" düğmesi çıkar, sonsuz yükleme olmaz.
+      if (!fixRef.current) {
+        try {
+          const once = await withTimeout(
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            15000,
+            'timeout',
+          );
+          if (!fixRef.current) {
+            publish(toFix(once));
+            setStatus('ready');
+          }
+        } catch {
+          if (!fixRef.current) setStatus('error');
+        }
+      }
     } catch {
       setStatus((s) => (s === 'ready' ? s : 'error'));
     } finally {

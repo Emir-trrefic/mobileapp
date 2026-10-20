@@ -7,7 +7,8 @@ import Backdrop from './components/Backdrop';
 import ErrorBoundary from './components/ErrorBoundary';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
-import { FadeIn, Pane } from './components/Transition';
+import SplashIntro from './components/SplashIntro';
+import { Pane, Screen } from './components/Transition';
 import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
@@ -90,6 +91,16 @@ function AppShell() {
   const [entry, setEntry] = useState<Entry>('welcome');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [quickBusy, setQuickBusy] = useState(false);
+  const [intro, setIntro] = useState(true); // açılış animasyonu (her açılışta bir kez)
+  const [revealed, setRevealed] = useState(false); // perde açılınca ekranlar çizilmeye başlar
+
+  // Sekme geçiş yönü: sağdaki sekmeye geçince sağdan, soldakine geçince soldan kayar.
+  const TAB_ORDER: Record<TabKey, number> = { map: 0, messages: 1, profile: 2 };
+  const prevTab = useRef<TabKey>('map');
+  const tabFrom = Math.sign(TAB_ORDER[tab] - TAB_ORDER[prevTab.current]);
+  useEffect(() => {
+    prevTab.current = tab;
+  }, [tab]);
 
   // Test için: e-posta/şifre olmadan anonim oturum açar (Supabase'de "Allow anonymous sign-ins" açık olmalı).
   const quickLogin = useCallback(async () => {
@@ -201,150 +212,161 @@ function AppShell() {
   // Durum çubuğu: koyu temada açık yazı, açık temada koyu yazı. Profil sekmesinde üstte fotoğraf olduğu için açık yazı.
   const barStyle = c.scheme === 'dark' ? 'light' : 'dark';
 
-  // ------------------------------------------------------------ ekranlar
+  const screen = (() => {
+    // ------------------------------------------------------------ ekranlar
 
-  if (!supabaseConfigured) {
-    return (
-      <View style={styles.center}>
-        <StatusBar style={barStyle} />
-        <Text style={styles.msg}>
-          Supabase ayarı eksik. Proje klasöründe .env dosyası oluşturup EXPO_PUBLIC_SUPABASE_URL ve
-          EXPO_PUBLIC_SUPABASE_ANON_KEY değerlerini gir (.env.example dosyasına bak), sonra uygulamayı yeniden başlat.
-        </Text>
-      </View>
-    );
-  }
+    if (!supabaseConfigured) {
+      return (
+        <View style={styles.center}>
+          <StatusBar style={barStyle} />
+          <Text style={styles.msg}>
+            Supabase ayarı eksik. Proje klasöründe .env dosyası oluşturup EXPO_PUBLIC_SUPABASE_URL ve
+            EXPO_PUBLIC_SUPABASE_ANON_KEY değerlerini gir (.env.example dosyasına bak), sonra uygulamayı yeniden başlat.
+          </Text>
+        </View>
+      );
+    }
 
-  if (booting || (session && !profileLoaded)) {
-    return (
-      <View style={styles.center}>
-        <StatusBar style={barStyle} />
-        <Backdrop />
-        <ActivityIndicator size="large" color={c.accent} />
-      </View>
-    );
-  }
+    if (booting || (session && !profileLoaded)) {
+      return (
+        <View style={styles.center}>
+          <StatusBar style={barStyle} />
+          <Backdrop />
+          <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      );
+    }
 
-  if (!session) {
+    if (!session) {
+      return (
+        <View style={styles.root}>
+          <StatusBar style={barStyle} />
+          {entry === 'welcome' ? (
+            <Screen key="welcome" from={-1}>
+            <WelcomeScreen
+              onStart={() => {
+                setAuthMode('signup');
+                setEntry('auth');
+              }}
+              onLogin={() => {
+                setAuthMode('login');
+                setEntry('auth');
+              }}
+              onQuick={quickLogin}
+              quickBusy={quickBusy}
+            />
+            </Screen>
+          ) : (
+            <Screen key={`auth-${authMode}`} from={1}>
+              <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
+            </Screen>
+          )}
+        </View>
+      );
+    }
+
+    if (loadError) {
+      return (
+        <View style={styles.center}>
+          <StatusBar style={barStyle} />
+          <Backdrop />
+          <Text style={styles.errTitle}>Profil okunamadı</Text>
+          <Text style={styles.msg}>
+            {loadError}
+            {'\n\n'}Veritabanı güncellemesi (supabase/migrations/002_profil_ve_harita.sql) henüz çalıştırılmamış olabilir.
+          </Text>
+          <AnimatedButton title="Tekrar dene" onPress={loadState} style={{ marginTop: 20, alignSelf: 'stretch' }} />
+          <AnimatedButton
+            title="Çıkış yap"
+            variant="ghost"
+            onPress={() => supabase.auth.signOut()}
+            style={{ marginTop: 10, alignSelf: 'stretch' }}
+          />
+        </View>
+      );
+    }
+
+    // Profil yok ya da eski (yaş/ilgi alanı eksik) → adım adım kurulum.
+    if (!profile || !profile.birth_year) {
+      return (
+        <View style={styles.root}>
+          <StatusBar style={barStyle} />
+          <Screen key="onboarding" from={1}>
+            <OnboardingScreen
+              userId={session.user.id}
+              initial={profile}
+              onDone={(p) => setProfile(p)}
+              onSignOut={() => supabase.auth.signOut()}
+            />
+          </Screen>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.root}>
         <StatusBar style={barStyle} />
-        {entry === 'welcome' ? (
-          <WelcomeScreen
-            onStart={() => {
-              setAuthMode('signup');
-              setEntry('auth');
+
+        <LocationHeartbeat active={active} onEnded={loadActive} />
+
+        {/* Harita hep açık kalır (konum ve harita yeniden yüklenmesin diye sadece gizlenir) */}
+        <Pane visible={tab === 'map'} keepMounted from={tabFrom}>
+          <MapScreen
+            active={active}
+            onCheckedIn={async () => {
+              await loadActive();
+              setVenueOpen(true);
             }}
-            onLogin={() => {
-              setAuthMode('login');
-              setEntry('auth');
-            }}
-            onQuick={quickLogin}
-            quickBusy={quickBusy}
+            onOpenVenue={() => setVenueOpen(true)}
           />
+        </Pane>
+
+        <Pane visible={tab === 'messages'} from={tabFrom}>
+          <MessagesScreen
+            connections={connections}
+            profile={profile}
+            onChanged={loadConnections}
+            onGoProfile={() => setTab('profile')}
+          />
+        </Pane>
+
+        <Pane visible={tab === 'profile'} from={tabFrom}>
+          <ProfileScreen
+            profile={profile}
+            email={session?.user.email ?? ''}
+            onSaved={(p) => setProfile(p)}
+            onSignOut={() => supabase.auth.signOut()}
+          />
+        </Pane>
+
+        {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}
+        {venueOpen && active ? (
+          <Pane visible from={1}>
+            <VenueScreen
+              active={active}
+              userId={session.user.id}
+              myInterests={profile.interests}
+              incoming={incoming}
+              onIncomingChanged={loadConnections}
+              onClose={() => setVenueOpen(false)}
+              onLeft={() => {
+                setActive(null);
+                setVenueOpen(false);
+                setTab('map');
+              }}
+            />
+          </Pane>
         ) : (
-          <View style={styles.fill}>
-            <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
-          </View>
+          <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
         )}
       </View>
     );
-  }
-
-  if (loadError) {
-    return (
-      <View style={styles.center}>
-        <StatusBar style={barStyle} />
-        <Backdrop />
-        <Text style={styles.errTitle}>Profil okunamadı</Text>
-        <Text style={styles.msg}>
-          {loadError}
-          {'\n\n'}Veritabanı güncellemesi (supabase/migrations/002_profil_ve_harita.sql) henüz çalıştırılmamış olabilir.
-        </Text>
-        <AnimatedButton title="Tekrar dene" onPress={loadState} style={{ marginTop: 20, alignSelf: 'stretch' }} />
-        <AnimatedButton
-          title="Çıkış yap"
-          variant="ghost"
-          onPress={() => supabase.auth.signOut()}
-          style={{ marginTop: 10, alignSelf: 'stretch' }}
-        />
-      </View>
-    );
-  }
-
-  // Profil yok ya da eski (yaş/ilgi alanı eksik) → adım adım kurulum.
-  if (!profile || !profile.birth_year) {
-    return (
-      <View style={styles.root}>
-        <StatusBar style={barStyle} />
-        <FadeIn key="onboarding" x={36} y={0} duration={360} style={styles.fill}>
-          <OnboardingScreen
-            userId={session.user.id}
-            initial={profile}
-            onDone={(p) => setProfile(p)}
-            onSignOut={() => supabase.auth.signOut()}
-          />
-        </FadeIn>
-      </View>
-    );
-  }
+  })();
 
   return (
     <View style={styles.root}>
-      <StatusBar style={barStyle} />
-
-      <LocationHeartbeat active={active} onEnded={loadActive} />
-
-      {/* Harita hep açık kalır (konum ve harita yeniden yüklenmesin diye sadece gizlenir) */}
-      <Pane visible={tab === 'map'} keepMounted>
-        <MapScreen
-          active={active}
-          onCheckedIn={async () => {
-            await loadActive();
-            setVenueOpen(true);
-          }}
-          onOpenVenue={() => setVenueOpen(true)}
-        />
-      </Pane>
-
-      <Pane visible={tab === 'messages'}>
-        <MessagesScreen
-          connections={connections}
-          profile={profile}
-          onChanged={loadConnections}
-          onGoProfile={() => setTab('profile')}
-        />
-      </Pane>
-
-      <Pane visible={tab === 'profile'}>
-        <ProfileScreen
-          profile={profile}
-          email={session?.user.email ?? ''}
-          onSaved={(p) => setProfile(p)}
-          onSignOut={() => supabase.auth.signOut()}
-        />
-      </Pane>
-
-      {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}
-      {venueOpen && active ? (
-        <Pane visible>
-          <VenueScreen
-            active={active}
-            userId={session.user.id}
-            myInterests={profile.interests}
-            incoming={incoming}
-            onIncomingChanged={loadConnections}
-            onClose={() => setVenueOpen(false)}
-            onLeft={() => {
-              setActive(null);
-              setVenueOpen(false);
-              setTab('map');
-            }}
-          />
-        </Pane>
-      ) : (
-        <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
-      )}
+      {revealed ? screen : null}
+      {intro ? <SplashIntro onReveal={() => setRevealed(true)} onDone={() => setIntro(false)} /> : null}
     </View>
   );
 }
@@ -352,7 +374,6 @@ function AppShell() {
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, backgroundColor: c.bg },
     msg: { color: c.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
     errTitle: { color: c.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },

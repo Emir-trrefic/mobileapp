@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AnimatedButton from '../components/AnimatedButton';
+import { FadeIn } from '../components/Transition';
 import { warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
@@ -111,11 +112,14 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
             <Ionicons name="chevron-back" size={26} color={c.text} />
           </Pressable>
 
-          <Text style={styles.title}>{isSignup ? 'Hesap oluştur' : 'Giriş yap'}</Text>
-          <Text style={styles.subtitle}>
-            {isSignup ? 'E-posta ve şifrenle birkaç saniyede başla.' : 'Hesabınla devam et.'}
-          </Text>
+          <FadeIn y={18} duration={420}>
+            <Text style={styles.title}>{isSignup ? 'Hesap oluştur' : 'Giriş yap'}</Text>
+            <Text style={styles.subtitle}>
+              {isSignup ? 'E-posta ve şifrenle birkaç saniyede başla.' : 'Hesabınla devam et.'}
+            </Text>
+          </FadeIn>
 
+          <FadeIn y={18} delay={80} duration={420}>
           <Text style={styles.label}>E-posta</Text>
           <TextInput
             value={email}
@@ -168,20 +172,18 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
             </View>
           ) : null}
 
+          </FadeIn>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-          <Pressable
+          <AnimatedButton
+            title={isSignup ? 'Hesap oluştur' : 'Giriş yap'}
             onPress={submit}
-            disabled={busy}
-            style={({ pressed }) => [styles.primary, (pressed || busy) && { opacity: 0.85 }]}
-          >
-            {busy ? (
-              <ActivityIndicator color={c.bg} />
-            ) : (
-              <Text style={styles.primaryText}>{isSignup ? 'Hesap oluştur' : 'Giriş yap'}</Text>
-            )}
-          </Pressable>
+            loading={busy}
+            delay={180}
+            style={{ marginTop: 6 }}
+          />
 
           <Pressable
             onPress={() => {

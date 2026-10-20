@@ -147,6 +147,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const age = ageFrom(profile.birth_year);
   const interests = profile.interests ?? [];
@@ -188,8 +189,13 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
 
   return (
     <View style={styles.root}>
-      <ScrollView
+      <Animated.ScrollView
+        style={styles.flex}
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: space + 24 }}
       >
         <Text style={styles.title}>Hesap</Text>
@@ -270,8 +276,19 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND} · Sürüm 0.4</Text>
-      </ScrollView>
+        <Text style={styles.footer}>{BRAND} · Sürüm 0.8</Text>
+      </Animated.ScrollView>
+
+      {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.stickyBar,
+          { height: insets.top + 44, opacity: scrollY.interpolate({ inputRange: [20, 60], outputRange: [0, 1], extrapolate: 'clamp' }) },
+        ]}
+      >
+        <Text style={styles.stickyTitle}>Hesap</Text>
+      </Animated.View>
 
       <Modal visible={editing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditing(false)}>
         <EditProfileScreen profile={profile} onClose={() => setEditing(false)} onSaved={onSaved} />
@@ -343,6 +360,20 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
+    flex: { flex: 1 },
+    stickyBar: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: c.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      paddingBottom: 11,
+    },
+    stickyTitle: { color: c.text, fontSize: 17, fontWeight: '700' },
     title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8, paddingHorizontal: 20, marginBottom: 16 },
 
     identity: {

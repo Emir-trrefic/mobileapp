@@ -59,20 +59,30 @@ Gizlilik: telefon/Instagram sadece `my_connections()` üzerinden, sadece kabul e
 - **Mesajlar**: hikaye şeridi (tanıştıkların), "Gelen istekler" (Kabul et / Reddet), "Mesajlar" listesi; tanışılan kişiye dokununca iletişim sayfası (Instagram, telefon, WhatsApp).
 - **Profil = Hesap**: kimlik kartı, "Tanışma isteğinde görünenler" (fotoğraf, ad, yaş, meslek, hakkında, ilgi alanları, Önizle), İletişim, Görünüm (tema), Gizlilik, Hesap (çıkış, hesabı sil; "SİL" yazarak onay).
 
-## 7. Çözülen sorun: giriş ekranında boş ekran (Sürüm 0.6)
+## 7. Son durum (Sürüm 0.8)
 
-Neden: `App.tsx` içindeki `fill` stili `StyleSheet.absoluteFillObject` kullanıyordu; bu alan React Native 0.86'da yok. Stil boş `{}` kalıyor, Giriş/Kayıt (ve Onboarding) ekranını saran View yüksekliksiz oluyordu. Hata fırlatmadığı için hata ekranı da çıkmıyordu. Düzeltme: açık `position: 'absolute', top/left/right/bottom: 0`.
+Sürüm 0.6: giriş ekranındaki boş ekran düzeltildi (`StyleSheet.absoluteFillObject` RN 0.86'da yok).
+Sürüm 0.7: karşılamada geliştirme modunda "Hızlı giriş (test)" (Supabase anonim oturum; Supabase'de "Allow anonymous sign-ins" açık olmalı). Supabase'de "Confirm email" kapatıldı.
 
-Ayrıca: `Appearance.setColorScheme(null)` → `'unspecified'`; `package.json` SDK 57'ye sabitlendi (eksik `expo-haptics`, `expo-image-picker`, `expo-linear-gradient`, `@expo/vector-icons` eklendi). `tsc --noEmit` hatasız.
+Sürüm 0.8 (iPhone 17 Pro simülatöründe test edildi):
+- Açılış animasyonu (`components/SplashIntro.tsx`): lacivert dört parça köşelerden dönerek gelip logoyu oluşturur, simge + isim belirir, perde açılır. `app.json` açılış zemini lacivert.
+- Sayfa geçişleri (`components/Transition.tsx` → `Screen`, `Pane`): sayfalar yandan kayarak gelir; sekmeler seçilen yönden kayar.
+- Düğmeler (`components/AnimatedButton.tsx`): ekrana yaylanarak gelir (`delay`), basınca küçülür; `leave` verilenler basınca uçarak gider, sonra işlem yapılır.
+- Onboarding iletişim adımı: kutular artık Devam düğmesinin altında kalmıyor (`lib/keyboard.ts` ile düğme klavyenin üstüne oturur, odaklanan alana kaydırılır).
+- Profil: kaydırınca sabit "Hesap" başlığı; sonuna kadar kayıyor.
+- Harita: konum gelmezse 15 sn sonra tek seferlik ölçüm, o da olmazsa "Konum alınamadı / Tekrar dene" ekranı (sonsuz yükleme yok). Haritada Apple'ın yer işaretleri gizlendi, sadece kafe pinleri.
 
-Codespace'te güncellemek için (yerel `package.json` değişikliği çekmeyi engeller):
+Codespace'te güncellemek için (yerel değişiklikler çekmeyi engeller):
 ```
-git checkout -- package.json && git pull && npm install && npx expo start --tunnel -c
+git checkout -- package.json app.json && git pull && npm install && npx expo start --tunnel -c
 ```
-Karşılamada "Sürüm 0.6" görünmeli.
+
+Not: yeni hesaplar (hızlı giriş dahil) yönetici değil, bu yüzden haritada "+" (kafe ekle) görünmez. Test için 002 dosyasının sonundaki `insert into public.admins ...` satırını SQL Editor'de tekrar çalıştır.
+
+Simülatörde test: Xcode kurulu. Konum: `xcrun simctl location booted set 40.9903,29.0290`. Ekran klavyesi için donanım klavyesi kapatıldı.
 
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.
 - Hızlı görsel önizleme için HTML demo yayınlandı (Artifact: https://claude.ai/artifact/DCYP6bsa7Cpc2a8aqBdtfc). Bu demo gerçek uygulama değil, tasarımın tıklanabilir taklidi.
-- Yapılacaklar: gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme (şu an herkes yönetici), `app.json` yerel değişikliğini repoya almak.
+- Yapılacaklar: gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme ekranı, yayın öncesi hızlı girişi kaldırmak.
