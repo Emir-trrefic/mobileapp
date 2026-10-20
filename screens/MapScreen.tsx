@@ -31,7 +31,7 @@ import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, Venue } from '../lib/types';
-import { categoryIcon, fmtDistance } from '../lib/venue';
+import { categoryIcon, fmtDistance, venueTitle } from '../lib/venue';
 
 type Props = {
   active: ActiveCheckin | null;
@@ -143,7 +143,7 @@ function VenueCard({
           <View style={{ flex: 1 }}>
             <View style={styles.nameRow}>
               <Text style={[styles.cardName, { flexShrink: 1 }]} numberOfLines={1}>
-                {venue.is_demo ? venue.name.replace(/^Demo · /, '') : venue.name}
+                {venueTitle(venue.name)}
               </Text>
               {venue.is_demo ? (
                 <View style={styles.demoTag}>
@@ -319,6 +319,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
     success();
     anchor.current = null;
     await fetchVenues(coords.lat, coords.lng);
+    mapRef.current?.animateToRegion(
+      { latitude: coords.lat - 0.004, longitude: coords.lng, latitudeDelta: 0.022, longitudeDelta: 0.022 },
+      600,
+    );
   }
 
   async function checkIn(v: Venue) {
@@ -482,7 +486,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
           <Pressable style={styles.livePill} onPress={onOpenVenue}>
             <View style={styles.liveDot} />
             <Text style={styles.liveText} numberOfLines={1}>
-              {active.venue_name} · Buradasın
+              {venueTitle(active.venue_name)} · Buradasın
             </Text>
             <Ionicons name="chevron-forward" size={16} color={c.text} />
           </Pressable>

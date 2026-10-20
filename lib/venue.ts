@@ -15,3 +15,8 @@ export function fmtRemaining(ms: number): string {
   if (h > 0) return `${h} sa ${m} dk`;
   return `${m} dk`;
 }
+
+// Demo kafelerin adındaki "Demo · " önekini gösterirken kaldırır (DEMO etiketi ayrıca gösterilir).
+export function venueTitle(name: string): string {
+  return name.replace(/^Demo · /, '');
+}

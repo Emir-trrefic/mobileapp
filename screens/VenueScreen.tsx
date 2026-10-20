@@ -23,7 +23,7 @@ import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, IncomingRequest, Person } from '../lib/types';
-import { fmtRemaining } from '../lib/venue';
+import { fmtRemaining, venueTitle } from '../lib/venue';
 
 type Props = {
   active: ActiveCheckin | null;
@@ -194,7 +194,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
               <Text style={styles.liveText}>Canlı · {remaining} kaldı</Text>
             </View>
             <Text style={styles.title} numberOfLines={2}>
-              {active.venue_name}
+              {venueTitle(active.venue_name)}
             </Text>
             <Text style={styles.subtitle}>
               {people.length > 0 ? `Şu an ${people.length} kişi burada` : 'Şu an burada başka kimse yok'}
