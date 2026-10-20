@@ -87,6 +87,12 @@ Sürüm 0.9:
 - Harita Apple Haritalar (iOS'ta react-native-maps varsayılanı, provider verilmiyor). İki parmakla ve sağ üstteki +/− düğmeleriyle yakınlaştırma.
 - Demo kafeler: haritada kafe yoksa (geliştirme modunda) "Yakınıma 10 demo kafe ekle"; kartlarda DEMO etiketi; Profil > Test > "Eklediğim demo kafeleri kaldır".
 
+Sürüm 0.10:
+- Yeni logo "Kesişim" (`components/Logo.tsx`, react-native-svg): iki halka iki insan, ortadaki dolu alan buluştukları an. Karşılama ekranında, uygulama simgesinde (`assets/icon.png`) ve Expo açılış görselinde (`assets/splash-icon.png`).
+- Açılış animasyonu (`components/SplashIntro.tsx`): halkalar iki yandan dönerek gelip buluşur, merkezden dalga yayılır, orta alan dolar, slogan belirir.
+- Kapak, simge ve isim önerileri tasarımı: https://claude.ai/artifact/8fHw8WeoMCcR2sYFy24XNe (isim adayları: Denk önerildi; karar verilmedi, `BRAND` hâlâ boş).
+- `react-native-svg` eklendi: Codespace'te `npm install` gerekli.
+
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.

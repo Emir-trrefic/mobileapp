@@ -1,53 +1,41 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Logo from './Logo';
 import { BRAND } from '../lib/theme';
 
-// Uygulama açılışı: lacivert tonlarında dört parça dört köşeden dönerek gelir, logoyu oluşturur;
-// ardından simge, isim ve slogan belirir ve perde açılarak uygulamaya geçilir.
+// Uygulama açılışı: iki halka (iki insan) iki yandan gelip buluşur; kesiştikleri an orta alan dolar
+// ve bir dalga yayılır ("denk gelmek"). Ardından slogan belirir ve perde açılarak uygulamaya geçilir.
 
-const TILE = 104; // birleşmiş logonun boyu
-const HALF = TILE / 2;
-const R = 30; // dış köşe yuvarlaklığı
-
-const PIECES = [
-  { color: '#2A4FB8', from: { x: -170, y: -230, r: -120 }, corner: 'tl' },
-  { color: '#1C3F9E', from: { x: 190, y: -200, r: 90 }, corner: 'tr' },
-  { color: '#12296B', from: { x: -200, y: 210, r: 100 }, corner: 'bl' },
-  { color: '#0B1F4B', from: { x: 170, y: 240, r: -90 }, corner: 'br' },
-] as const;
-
-function cornerStyle(corner: (typeof PIECES)[number]['corner']) {
-  switch (corner) {
-    case 'tl':
-      return { left: 0, top: 0, borderTopLeftRadius: R };
-    case 'tr':
-      return { left: HALF, top: 0, borderTopRightRadius: R };
-    case 'bl':
-      return { left: 0, top: HALF, borderBottomLeftRadius: R };
-    default:
-      return { left: HALF, top: HALF, borderBottomRightRadius: R };
-  }
-}
+const SIZE = 156; // logonun boyu
+const BG = '#081028';
 
 export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void; onDone: () => void }) {
-  const parts = useRef(PIECES.map(() => new Animated.Value(0))).current;
-  const icon = useRef(new Animated.Value(0)).current;
+  const left = useRef(new Animated.Value(0)).current;
+  const right = useRef(new Animated.Value(0)).current;
+  const lens = useRef(new Animated.Value(0)).current;
+  const wave = useRef(new Animated.Value(0)).current;
   const text = useRef(new Animated.Value(0)).current;
   const curtain = useRef(new Animated.Value(0)).current; // 0: kapalı, 1: açıldı
 
   useEffect(() => {
-    const assemble = Animated.stagger(
-      90,
-      parts.map((p) => Animated.spring(p, { toValue: 1, useNativeDriver: true, speed: 7, bounciness: 7 })),
-    );
     Animated.sequence([
-      Animated.delay(120),
-      assemble,
-      Animated.spring(icon, { toValue: 1, useNativeDriver: true, speed: 12, bounciness: 14 }),
-      Animated.timing(text, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.delay(380),
+      Animated.delay(150),
+      Animated.parallel([
+        Animated.spring(left, { toValue: 1, useNativeDriver: true, speed: 5, bounciness: 6 }),
+        Animated.sequence([
+          Animated.delay(70),
+          Animated.spring(right, { toValue: 1, useNativeDriver: true, speed: 5, bounciness: 6 }),
+        ]),
+      ]),
+      Animated.parallel([
+        Animated.spring(lens, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 16 }),
+        Animated.timing(wave, { toValue: 1, duration: 750, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.sequence([
+          Animated.delay(220),
+          Animated.timing(text, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]),
+      ]),
+      Animated.delay(420),
     ]).start(() => {
       // Perde açılmaya başlarken uygulama altta çizilir; böylece ekranın kendi giriş animasyonları görünür.
       onReveal();
@@ -57,64 +45,60 @@ export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const ring = (v: Animated.Value, from: number, turn: string) => ({
+    opacity: v.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 1] }),
+    transform: [
+      { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) },
+      { rotate: v.interpolate({ inputRange: [0, 1], outputRange: [turn, '0deg'] }) },
+      { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+    ],
+  });
+
   return (
     <Animated.View
       pointerEvents="none"
       style={[
         StyleSheet.absoluteFill,
         styles.root,
-        {
-          opacity: curtain.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1, 0] }),
-        },
+        { opacity: curtain.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1, 0] }) },
       ]}
     >
-      <LinearGradient colors={['#0A1433', '#081028', '#050A1C']} style={StyleSheet.absoluteFill} />
-
       <Animated.View
         style={{
           alignItems: 'center',
           transform: [
-            { scale: curtain.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) },
+            { scale: curtain.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) },
             { translateY: curtain.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) },
           ],
         }}
       >
-        <View style={styles.tile}>
-          {PIECES.map((piece, i) => {
-            const p = parts[i];
-            return (
-              <Animated.View
-                key={piece.corner}
-                style={[
-                  styles.piece,
-                  cornerStyle(piece.corner),
-                  {
-                    backgroundColor: piece.color,
-                    opacity: p.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
-                    transform: [
-                      { translateX: p.interpolate({ inputRange: [0, 1], outputRange: [piece.from.x, 0] }) },
-                      { translateY: p.interpolate({ inputRange: [0, 1], outputRange: [piece.from.y, 0] }) },
-                      { rotate: p.interpolate({ inputRange: [0, 1], outputRange: [`${piece.from.r}deg`, '0deg'] }) },
-                      { scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
-                    ],
-                  },
-                ]}
-              />
-            );
-          })}
+        <View style={styles.mark}>
+          {/* Buluşma anında merkezden yayılan dalga */}
           <Animated.View
             style={[
-              styles.iconWrap,
+              styles.wave,
               {
-                opacity: icon,
-                transform: [
-                  { scale: icon.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
-                  { rotate: icon.interpolate({ inputRange: [0, 1], outputRange: ['-25deg', '0deg'] }) },
-                ],
+                opacity: wave.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.55, 0] }),
+                transform: [{ scale: wave.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.4] }) }],
+              },
+            ]}
+          />
+          <Animated.View style={[styles.layer, ring(left, -170, '-35deg')]}>
+            <Logo size={SIZE} part="left" />
+          </Animated.View>
+          <Animated.View style={[styles.layer, ring(right, 170, '35deg')]}>
+            <Logo size={SIZE} part="right" />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.layer,
+              {
+                opacity: lens,
+                transform: [{ scale: lens.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }) }],
               },
             ]}
           >
-            <Ionicons name="cafe" size={46} color="#fff" />
+            <Logo size={SIZE} part="lens" />
           </Animated.View>
         </View>
 
@@ -126,7 +110,7 @@ export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void
           }}
         >
           {BRAND ? <Text style={styles.brand}>{BRAND}</Text> : null}
-          <Text style={styles.tagline}>Aynı kafedeki insanlarla tanış.</Text>
+          <Text style={[styles.tagline, !BRAND && styles.headline]}>Aynı kafedeki insanlarla tanış.</Text>
         </Animated.View>
       </Animated.View>
     </Animated.View>
@@ -134,10 +118,11 @@ export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void
 }
 
 const styles = StyleSheet.create({
-  root: { alignItems: 'center', justifyContent: 'center', zIndex: 100, elevation: 100 },
-  tile: { width: TILE, height: TILE },
-  piece: { position: 'absolute', width: HALF, height: HALF },
-  iconWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  brand: { color: '#F4F6FB', fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 24 },
-  tagline: { color: '#93A0BF', fontSize: 16, marginTop: BRAND ? 8 : 26 },
+  root: { alignItems: 'center', justifyContent: 'center', zIndex: 100, elevation: 100, backgroundColor: BG },
+  mark: { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
+  layer: { position: 'absolute', top: 0, left: 0, width: SIZE, height: SIZE },
+  wave: { position: 'absolute', width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#9DB4FF' },
+  brand: { color: '#F4F6FB', fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 20 },
+  tagline: { color: '#93A0BF', fontSize: 16, marginTop: 8 },
+  headline: { color: '#F4F6FB', fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 24 },
 });

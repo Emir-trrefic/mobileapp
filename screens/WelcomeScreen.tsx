@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Logo from '../components/Logo';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
 import { BRAND, useColors, useStyles } from '../lib/theme';
@@ -45,9 +44,9 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
             transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
           }}
         >
-          <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.mark}>
-            <Ionicons name="cafe" size={44} color="#fff" />
-          </LinearGradient>
+          <View style={styles.mark}>
+            <Logo size={74} />
+          </View>
           {BRAND ? <Text style={styles.brand}>{BRAND}</Text> : null}
         </Animated.View>
         <Animated.Text style={[styles.tagline, !BRAND && styles.headline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
@@ -69,7 +68,7 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
             )}
           </Pressable>
         ) : null}
-        <Text style={styles.version}>Sürüm 0.9 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        <Text style={styles.version}>Sürüm 0.10 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );
@@ -79,7 +78,7 @@ const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 40 },
-    mark: { width: 96, height: 96, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    mark: { width: 104, height: 104, borderRadius: 30, backgroundColor: '#081028', alignItems: 'center', justifyContent: 'center' },
     brand: { color: c.text, fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 22 },
     tagline: { color: c.muted, fontSize: 16, marginTop: 10 },
     headline: { color: c.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 26 },

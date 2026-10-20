@@ -5,7 +5,8 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "icon": "./assets/icon.png"
     },
     "userInterfaceStyle": "automatic",
     "plugins": [
@@ -19,8 +20,11 @@
     ],
     "backgroundColor": "#081028",
     "splash": {
-      "backgroundColor": "#081028",
-      "resizeMode": "contain"
-    }
+      "image": "./assets/splash-icon.png",
+      "imageWidth": 180,
+      "resizeMode": "contain",
+      "backgroundColor": "#081028"
+    },
+    "icon": "./assets/icon.png"
   }
 }

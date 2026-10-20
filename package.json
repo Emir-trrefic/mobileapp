@@ -23,6 +23,7 @@
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-maps": "1.27.2",
+    "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {
