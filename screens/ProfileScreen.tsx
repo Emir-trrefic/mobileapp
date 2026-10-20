@@ -18,6 +18,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
+import AnimatedButton from '../components/AnimatedButton';
+import AvatarBuilder from '../components/AvatarBuilder';
+import { HAIR_STYLES, normalizeAvatar } from '../lib/avatar';
+import type { AvatarConfig } from '../lib/avatar';
 import ProfileView from '../components/ProfileView';
 import { formatPhone } from '../lib/contact';
 import { tap, warning } from '../lib/haptics';
@@ -26,6 +30,7 @@ import { ageFrom } from '../lib/profile';
 import { supabase } from '../lib/supabase';
 import { BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
 import type { Palette, ThemePref } from '../lib/theme';
+import { PROFILE_COLUMNS } from '../lib/types';
 import type { Profile } from '../lib/types';
 import EditProfileScreen from './EditProfileScreen';
 
@@ -148,6 +153,30 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState<AvatarConfig>(normalizeAvatar(profile.avatar));
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  async function saveAvatar() {
+    setAvatarBusy(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ avatar: avatarDraft })
+      .eq('id', profile.id)
+      .select(PROFILE_COLUMNS)
+      .single();
+    setAvatarBusy(false);
+    if (error) {
+      warning();
+      Alert.alert(
+        'Avatar kaydedilemedi',
+        error.code === '42703' ? 'Önce Supabase’de supabase/migrations/007_avatarlar.sql dosyasını çalıştır.' : error.message,
+      );
+      return;
+    }
+    onSaved(data as Profile);
+    setAvatarOpen(false);
+  }
 
   const age = ageFrom(profile.birth_year);
   const interests = profile.interests ?? [];
@@ -219,6 +248,18 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           </View>
           <Text style={styles.idEdit}>Düzenle</Text>
         </Pressable>
+
+        <Group title="3D avatar" footer="Haritada kafeye bakan herkes seni bu karakterle görür.">
+          <Row
+            label="Avatarın"
+            value={HAIR_STYLES[normalizeAvatar(profile.avatar).hair] + ' saç'}
+            onPress={() => {
+              setAvatarDraft(normalizeAvatar(profile.avatar));
+              setAvatarOpen(true);
+            }}
+            last
+          />
+        </Group>
 
         <Group
           title="Tanışma isteğinde görünenler"
@@ -305,6 +346,22 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
         <Text style={styles.stickyTitle}>Hesap</Text>
       </Animated.View>
 
+      <Modal visible={avatarOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAvatarOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
+          <View style={styles.sheetHeader}>
+            <Pressable onPress={() => setAvatarOpen(false)} hitSlop={10}>
+              <Text style={styles.sheetCancel}>İptal</Text>
+            </Pressable>
+            <Text style={styles.sheetTitle}>Avatarın</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+            <AvatarBuilder value={avatarDraft} onChange={setAvatarDraft} />
+            <AnimatedButton title="Kaydet" icon="checkmark" onPress={saveAvatar} loading={avatarBusy} style={{ marginTop: 24 }} />
+          </ScrollView>
+        </View>
+      </Modal>
+
       <Modal visible={editing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditing(false)}>
         <EditProfileScreen profile={profile} onClose={() => setEditing(false)} onSaved={onSaved} />
       </Modal>
@@ -389,6 +446,16 @@ const makeStyles = (c: Palette) =>
       paddingBottom: 11,
     },
     stickyTitle: { color: c.text, fontSize: 17, fontWeight: '700' },
+    sheetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 6,
+    },
+    sheetCancel: { color: c.accentLight, fontSize: 16, fontWeight: '600', width: 40 },
+    sheetTitle: { color: c.text, fontSize: 17, fontWeight: '700' },
     title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8, paddingHorizontal: 20, marginBottom: 16 },
 
     identity: {

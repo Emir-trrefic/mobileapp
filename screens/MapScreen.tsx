@@ -20,6 +20,7 @@ import type { Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
+import CafeSceneModal from '../components/CafeSceneModal';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
@@ -37,6 +38,7 @@ type Props = {
   active: ActiveCheckin | null;
   onCheckedIn: () => void;
   onOpenVenue: () => void;
+  onImmersive?: (on: boolean) => void; // 3D sahne açıkken alt sekme çubuğu gizlensin
 };
 
 const GAP = 12;
@@ -182,7 +184,7 @@ function VenueCard({
   );
 }
 
-export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
+export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersive }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -206,6 +208,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adding, setAdding] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [sceneVenue, setSceneVenue] = useState<Venue | null>(null); // 3D sahnesi açık olan kafe
+  useEffect(() => {
+    onImmersive?.(!!sceneVenue);
+  }, [sceneVenue]); // eslint-disable-line react-hooks/exhaustive-deps
   const region = useRef<Region | null>(null); // haritanın o anki görünümü (yakınlaştırma düğmeleri için)
 
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
@@ -262,11 +268,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
     );
   }
 
+  // Pine ya da karta dokununca kafe seçilir ve 3D sahnesi açılır.
   function onMarkerPress(v: Venue) {
     tap();
     const idx = venues.findIndex((x) => x.id === v.id);
     if (idx >= 0) listRef.current?.scrollToOffset({ offset: idx * STEP, animated: true });
     focusVenue(v);
+    setSceneVenue(v);
   }
 
   function onMomentumEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -325,7 +333,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
     );
   }
 
-  async function checkIn(v: Venue) {
+  async function checkIn(v: Venue): Promise<boolean> {
     // Check-in anında taze ve yeterince doğru bir GPS ölçümü alınır; sunucu mesafeyi kendisi tekrar doğrular.
     setBusyVenue(v.id);
     try {
@@ -336,13 +344,17 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         p_lng: f.lng,
         p_accuracy: f.accuracy,
       });
-      if (error) Alert.alert('Check-in yapılamadı', error.message);
-      else {
-        success();
-        onCheckedIn();
+      if (error) {
+        Alert.alert('Check-in yapılamadı', error.message);
+        return false;
       }
+      success();
+      setSceneVenue(null);
+      onCheckedIn();
+      return true;
     } catch (e) {
       Alert.alert('Konum doğrulanamadı', e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setBusyVenue(null);
     }
@@ -563,6 +575,25 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
           />
         )}
       </FadeIn>
+
+      <CafeSceneModal
+        venue={sceneVenue}
+        distance={sceneVenue ? distanceMeters(coords.lat, coords.lng, sceneVenue.lat, sceneVenue.lng) : 0}
+        canCheckIn={
+          !!sceneVenue &&
+          distanceMeters(coords.lat, coords.lng, sceneVenue.lat, sceneVenue.lng) - Math.min(accuracy, 25) <= sceneVenue.radius_m
+        }
+        here={!!sceneVenue && active?.venue_id === sceneVenue.id}
+        busy={!!sceneVenue && busyVenue === sceneVenue.id}
+        onClose={() => setSceneVenue(null)}
+        onCheckIn={() => {
+          if (sceneVenue) checkIn(sceneVenue);
+        }}
+        onOpenVenue={() => {
+          setSceneVenue(null);
+          onOpenVenue();
+        }}
+      />
 
       <AddVenueModal
         visible={adding}

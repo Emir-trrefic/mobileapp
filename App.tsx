@@ -13,7 +13,7 @@ import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
-import { PROFILE_COLUMNS } from './lib/types';
+import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
 import type { ActiveCheckin, Connection, IncomingRequest, Profile } from './lib/types';
 import WelcomeScreen from './screens/WelcomeScreen';
 import AuthScreen from './screens/AuthScreen';
@@ -91,6 +91,7 @@ function AppShell() {
   const [entry, setEntry] = useState<Entry>('welcome');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [quickBusy, setQuickBusy] = useState(false);
+  const [immersive, setImmersive] = useState(false); // haritada 3D kafe sahnesi açık
   const [intro, setIntro] = useState(true); // açılış animasyonu (her açılışta bir kez)
   const [revealed, setRevealed] = useState(false); // perde açılınca ekranlar çizilmeye başlar
 
@@ -134,7 +135,11 @@ function AppShell() {
   const loadState = useCallback(async () => {
     if (!session) return;
     setLoadError(null);
-    const prof = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle();
+    let prof = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle();
+    // 42703: sütun yok (007 henüz çalıştırılmamış) → avatarsız oku.
+    if (prof.error?.code === '42703') {
+      prof = await supabase.from('profiles').select(PROFILE_COLUMNS_BASE).eq('id', session.user.id).maybeSingle();
+    }
     if (prof.error) {
       setLoadError(prof.error.message);
       setProfileLoaded(true);
@@ -318,6 +323,7 @@ function AppShell() {
               setVenueOpen(true);
             }}
             onOpenVenue={() => setVenueOpen(true)}
+            onImmersive={setImmersive}
           />
         </Pane>
 
@@ -356,7 +362,7 @@ function AppShell() {
               }}
             />
           </Pane>
-        ) : (
+        ) : immersive && tab === 'map' ? null : (
           <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
         )}
       </View>

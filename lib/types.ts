@@ -32,6 +32,7 @@ export type Profile = {
   avatar_url: string | null;
   phone: string | null;
   instagram: string | null;
+  avatar?: unknown; // 3D avatar ayarı (lib/avatar.ts → normalizeAvatar)
 };
 
 export type Person = {
@@ -80,4 +81,6 @@ export type Connection = {
   instagram: string | null;
 };
 
-export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram';
+export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram, avatar';
+// 007 çalıştırılmadıysa avatar sütunu yoktur; profil yine de okunabilsin diye yedek liste.
+export const PROFILE_COLUMNS_BASE = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram';

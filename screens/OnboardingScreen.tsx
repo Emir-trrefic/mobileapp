@@ -14,10 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
+import AvatarBuilder from '../components/AvatarBuilder';
 import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
+import { normalizeAvatar } from '../lib/avatar';
+import type { AvatarConfig } from '../lib/avatar';
 import { parseContact } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/keyboard';
@@ -34,7 +37,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
-import { PROFILE_COLUMNS } from '../lib/types';
+import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from '../lib/types';
 import type { Profile } from '../lib/types';
 
 type Props = {
@@ -44,7 +47,7 @@ type Props = {
   onSignOut: () => void;
 };
 
-const STEPS = 6;
+const STEPS = 7;
 
 export default function OnboardingScreen({ userId, initial, onDone, onSignOut }: Props) {
   const c = useColors();
@@ -59,6 +62,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const [photoUri, setPhotoUri] = useState<string | null>(initial?.avatar_url ?? null);
   const [photoMime, setPhotoMime] = useState<string | null>(null);
   const [photoChanged, setPhotoChanged] = useState(false);
+  const [avatar, setAvatar] = useState<AvatarConfig>(normalizeAvatar(initial?.avatar));
   const [interests, setInterests] = useState<string[]>(initial?.interests ?? []);
   const [job, setJob] = useState(initial?.job ?? '');
   const [bio, setBio] = useState(initial?.bio ?? '');
@@ -94,9 +98,9 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
       ? trimmed.length >= 2
       : step === 1
         ? birthYear !== null
-        : step === 3
+        : step === 4
           ? interests.length >= MIN_INTERESTS
-          : step === 4
+          : step === 5
             ? Boolean(phone.trim() || insta.trim())
             : true;
 
@@ -119,7 +123,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
       setError(contact.error);
       warning();
       setDir(-1);
-      setStep(4);
+      setStep(5);
       return;
     }
     setBusy(true);
@@ -138,8 +142,15 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         avatar_url: avatarUrl,
         phone: contact.phone,
         instagram: contact.instagram,
+        avatar,
       };
-      const { data, error: err } = await supabase.from('profiles').upsert(row).select(PROFILE_COLUMNS).single();
+      let res = await supabase.from('profiles').upsert(row).select(PROFILE_COLUMNS).single();
+      if (res.error?.code === '42703') {
+        // 007 çalıştırılmadıysa avatar sütunu yok: avatarsız kaydet.
+        const { avatar: _a, ...rest } = row;
+        res = await supabase.from('profiles').upsert(rest).select(PROFILE_COLUMNS_BASE).single();
+      }
+      const { data, error: err } = res;
       if (err) throw err;
       success();
       onDone(data as Profile);
@@ -154,7 +165,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
   function next() {
     if (!canNext) return;
-    if (step === 4) {
+    if (step === 5) {
       const contact = parseContact(phone, insta, true);
       if (contact.error) {
         setError(contact.error);
@@ -188,6 +199,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     { t: 'Adın ne?', s: 'Mekandaki insanlar seni bu isimle görecek.' },
     { t: 'Doğum yılın?', s: `Sadece yaşın görünür. ${MIN_AGE} yaşından küçükler katılamaz.` },
     { t: 'Bir fotoğraf ekle', s: 'Yüzünün göründüğü net bir fotoğraf tanışmayı kolaylaştırır.' },
+    { t: 'Avatarını oluştur', s: 'Haritada kafeye bakan herkes seni bu 3D karakterle görür. Sürükleyerek çevirebilirsin.' },
     { t: 'Nelerden hoşlanıyorsun?', s: `En az ${MIN_INTERESTS}, en fazla ${MAX_INTERESTS} tane seç.` },
     {
       t: 'İletişim bilgin',
@@ -297,7 +309,9 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
               </View>
             )}
 
-            {step === 3 && (
+            {step === 3 && <AvatarBuilder value={avatar} onChange={setAvatar} previewHeight={260} />}
+
+            {step === 4 && (
               <>
                 <View style={styles.chips}>
                   {INTERESTS.map((i) => (
@@ -315,7 +329,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
               </>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <>
                 <AnimatedInput
                   label="Telefon (örn. 0532 123 45 67)"
@@ -349,7 +363,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
               </>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <>
                 <AnimatedInput
                   label="Meslek / okul (isteğe bağlı)"

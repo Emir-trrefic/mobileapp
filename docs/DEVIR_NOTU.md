@@ -93,6 +93,11 @@ Sürüm 0.10:
 - Kapak, simge ve isim önerileri tasarımı: https://claude.ai/artifact/8fHw8WeoMCcR2sYFy24XNe (isim adayları: Denk önerildi; karar verilmedi, `BRAND` hâlâ boş).
 - `react-native-svg` eklendi: Codespace'te `npm install` gerekli.
 
+YARIM KALAN İŞ (dal: `3d-avatar`, main'e alınmadı):
+- 3D avatar ve kafe sahnesi: `lib/avatar.ts`, `lib/scene3d.ts` (three.js + expo-gl), `components/Scene3D.tsx`, `CafeSceneModal.tsx`, `AvatarBuilder.tsx`; kurulumda "Avatarını oluştur" adımı, Profil > 3D avatar; haritada kafeye dokununca 3D sahne.
+- Veritabanı: `supabase/migrations/007_avatarlar.sql` (profiles.avatar, venue_avatars, demo kafelere örnek kişiler). Henüz Supabase'de ÇALIŞTIRILMADI.
+- SORUN: three.js, expo-gl ile kuruluyor ve çiziyor (OpenGL ES 3.0, WebGL2, hata yok) ama sahne ekranda çoğu zaman boş görünüyor; sadece sıcak yeniden yüklemeden sonra bir kez göründü. Sıradaki deneme: GLView'i kafe katmanı açılmadan önce bir kez (gizli) kurup açık tutmak, ya da `@react-three/fiber/native` / three r162 ile denemek.
+
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.
