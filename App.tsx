@@ -89,6 +89,20 @@ function AppShell() {
   const [tab, setTab] = useState<TabKey>('map');
   const [entry, setEntry] = useState<Entry>('welcome');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const [quickBusy, setQuickBusy] = useState(false);
+
+  // Test için: e-posta/şifre olmadan anonim oturum açar (Supabase'de "Allow anonymous sign-ins" açık olmalı).
+  const quickLogin = useCallback(async () => {
+    setQuickBusy(true);
+    const { error } = await supabase.auth.signInAnonymously();
+    setQuickBusy(false);
+    if (error) {
+      Alert.alert(
+        'Hızlı giriş açılamadı',
+        `${error.message}\n\nSupabase > Authentication > Sign In / Providers bölümünde "Allow anonymous sign-ins" seçeneğini açıp kaydet.`,
+      );
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth
@@ -225,6 +239,8 @@ function AppShell() {
               setAuthMode('login');
               setEntry('auth');
             }}
+            onQuick={quickLogin}
+            quickBusy={quickBusy}
           />
         ) : (
           <View style={styles.fill}>

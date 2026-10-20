@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { impact } from '../lib/haptics';
@@ -20,9 +20,9 @@ function useIn(delay: number, dist = 16) {
   };
 }
 
-type Props = { onStart: () => void; onLogin: () => void };
+type Props = { onStart: () => void; onLogin: () => void; onQuick?: () => void; quickBusy?: boolean };
 
-export default function WelcomeScreen({ onStart, onLogin }: Props) {
+export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -78,7 +78,17 @@ export default function WelcomeScreen({ onStart, onLogin }: Props) {
         <Animated.Text style={[styles.legal, legal]}>
           Devam ederek 18 yaşından büyük olduğunu ve kullanım koşullarını kabul ettiğini onaylarsın.
         </Animated.Text>
-        <Text style={styles.version}>Sürüm 0.6 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        {/* Geliştirme sırasında e-posta/şifre olmadan hızlı giriş (yayın sürümünde görünmez) */}
+        {__DEV__ && onQuick ? (
+          <Pressable onPress={onQuick} disabled={quickBusy} hitSlop={10} style={styles.quick}>
+            {quickBusy ? (
+              <ActivityIndicator color={c.muted} />
+            ) : (
+              <Text style={styles.quickText}>Hızlı giriş (test)</Text>
+            )}
+          </Pressable>
+        ) : null}
+        <Text style={styles.version}>Sürüm 0.7 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );
@@ -110,6 +120,8 @@ const makeStyles = (c: Palette) =>
       marginTop: 12,
     },
     secondaryText: { color: c.text, fontSize: 17, fontWeight: '700' },
+    quick: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+    quickText: { color: c.accentLight, fontSize: 15, fontWeight: '700' },
     version: { color: c.muted, opacity: 0.6, fontSize: 11, textAlign: 'center', marginTop: 10 },
     legal: { color: c.muted, fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 18, paddingHorizontal: 6 },
   });
