@@ -588,7 +588,7 @@ function frame() {
   } else {
     if (!EDIT && now - lastInput > 3500) {
       const az = controls.getAzimuthalAngle();
-      if (az > 1.45) swayDir = -1; else if (az < 0.15) swayDir = 1;
+      if (az > 1.2) swayDir = -1; else if (az < 0.4) swayDir = 1;
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.35 * swayDir;
     }
