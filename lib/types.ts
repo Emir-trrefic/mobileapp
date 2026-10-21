@@ -11,7 +11,9 @@ export type Venue = {
   active_count: number;
   is_demo?: boolean; // test için eklenen demo kafe
   demo_people?: number; // demo kafede 3D sahnede gösterilen örnek kişi sayısı (007)
-  model_url?: string | null; // kafenin kendi 3D modeli (007); boşsa örnek kafe gösterilir
+  model_url?: string | null; // kafenin kendi 3D modeli (007); boşsa profilden çizilir
+  layout?: unknown; // kafenin 3D profili (008) → lib/cafeLayout.ts normalizeLayout
+  can_edit?: boolean; // bu kullanıcı kafenin 3D profilini düzenleyebilir mi (008)
 };
 
 export type ActiveCheckin = {

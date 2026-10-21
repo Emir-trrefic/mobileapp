@@ -36,12 +36,13 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
+- 008: kafe 3D profili. venues.layout (jsonb: v, size, style, wall, floor, accent, counter, tables, plants, windows; renkler palet sırası), is_valid_cafe_layout, can_edit_venue (yönetici ya da demo kafenin sahibi), set_venue_layout, venues_nearby artık layout ve can_edit döndürüyor.
 - 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
 - 006: demo kafeler. venues.is_demo + created_by, coğrafi indeks; Kadıköy merkezine sabit 10 demo kafe; seed_demo_cafes(lat,lng) (kullanıcının yanına 10 demo, eskilerini değiştirir), clear_my_demo_cafes(), clear_all_demo_cafes() (yönetici); venues_nearby artık is_demo döndürüyor; add_venue ekleyeni kaydediyor. Yayından önce demo kafeler temizlenmeli ve seed_demo_cafes yetkisi kaldırılmalı.
 
@@ -105,6 +106,18 @@ Sürüm 0.11:
 - Kafenin kendi modeli: `model_url` doluysa GLTFLoader ile yüklenir, ortalanıp sığdırılır; yüklenemezse örnek kafe. (Gerçek bir modelle henüz denenmedi.)
 - Açılış: halkalar ekranın iki karşı köşesinden kavis çizip dönerek gelir, etraftan noktalar merkeze akar, sonra kesişim dolar.
 - Eski `3d-avatar` dalı artık kullanılmıyor (kişisel avatar fikri bırakıldı); silinebilir.
+
+Sürüm 0.12 (3D mantığı):
+- Her kafenin 3D'si bir profilden ("tarif") çizilir: `lib/cafeLayout.ts` (tip, tema paletleri WALLS/FLOORS/ACCENTS, varsayılan yerleşim, doğrulama).
+  Renkler palet sırası olarak saklanır; fotoğraftan gelen renk paletteki en yakın renge oturtulur → tüm kafeler aynı temada kalır.
+  Profili olmayan kafe, kimliğinden türetilen sabit bir yerleşimle açılır (her kafe farklı görünür).
+- Sahne (`lib/cafe3dHtml.ts`): ölçü (küçük/orta/büyük), stil (klasik/modern/bohem/endüstriyel → sandalye, masa şekli, lamba, halı, borular), tezgâh arka/sol duvar, masa/bitki/pencere sayısı.
+  `window.applyScene(layout, kişi)` ile sayfa yenilenmeden güncellenir; ölçü değişince kamera yumuşakça yeniden kadrajlanır.
+- Kafeyi tara (`components/CafeScanner.tsx`): 1-3 fotoğraf (kamera ya da galeri; fotoğraflar telefonda işlenir, yüklenmez) → duvar/zemin/vurgu rengi; ölçü, tezgâh, masa/pencere/bitki, stil, renkler canlı 3D önizlemeyle; Kaydet → set_venue_layout.
+  Açılış: 3D kafede "Tara" (yönetici ya da kendi demo kafen), yönetici yeni kafe ekleyince otomatik açılır.
+- Akıcılık: uygulama açılınca gizli bir WebView three.js'i önbelleğe alır (`components/Warmup3D.tsx`); açık 3D sahne kişi sayısı / profil değişince yeniden yüklenmez, yerinde güncellenir.
+- Haritadaki GPS yazısı kaldırıldı.
+- Mac'te simülatörde kaydırma: fareyle tıklayıp sürükle (izleme dörtgeninde iki parmakla kaydırma simülatöre dokunma olarak gitmeyebilir). Telefonda parmakla her şey kayar.
 
 ## 8. Önemli notlar
 

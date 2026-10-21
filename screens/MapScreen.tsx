@@ -20,13 +20,14 @@ import type { Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
+import CafeScanner from '../components/CafeScanner';
 import CafeScene from '../components/CafeScene';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
 import { distanceMeters } from '../lib/geo';
 import { success, tap } from '../lib/haptics';
-import { qualityOf, useGps } from '../lib/location';
+import { useGps } from '../lib/location';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
@@ -211,6 +212,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const [adding, setAdding] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [sceneVenue, setSceneVenue] = useState<Venue | null>(null); // 3D hali açık olan kafe
+  const [scanVenue, setScanVenue] = useState<Venue | null>(null); // taranan (3D profili düzenlenen) kafe
+  const pendingScan = useRef<string | null>(null); // yeni eklenen kafe listede görününce tarama açılır
   useEffect(() => {
     onImmersive?.(!!sceneVenue);
   }, [sceneVenue]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -225,6 +228,15 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
     anchor.current = { lat, lng };
     const list = (data ?? []) as Venue[];
     setVenues(list);
+    // Açık sahne / tarama, kafenin güncel haliyle sürsün.
+    setSceneVenue((cur) => (cur ? (list.find((v) => v.id === cur.id) ?? cur) : cur));
+    if (pendingScan.current) {
+      const v = list.find((x) => x.id === pendingScan.current);
+      if (v) {
+        pendingScan.current = null;
+        setScanVenue(v);
+      }
+    }
     setSelectedId((cur) => (cur && list.some((v) => v.id === cur) ? cur : (list[0]?.id ?? null)));
   }, []);
 
@@ -427,8 +439,6 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   }
 
   const accuracy = gps.fix?.accuracy ?? 999;
-  const quality = qualityOf(accuracy);
-  const gpsColor = quality === 'good' ? c.success : quality === 'ok' ? c.warn : c.danger;
 
   const startRegion = {
     latitude: coords.lat - 0.0011,
@@ -471,11 +481,6 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
 
       {/* Üst çubuk */}
       <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
-        <View style={styles.brandChip}>
-          <View style={[styles.brandDot, { backgroundColor: gpsColor }]} />
-          <Text style={styles.brandText}>GPS</Text>
-          <Text style={styles.gpsText}>±{Math.round(gps.fix?.accuracy ?? 0)} m</Text>
-        </View>
         <View style={styles.topButtons}>
           {isAdmin ? (
             <Pressable style={styles.roundBtn} onPress={() => setAdding(true)} hitSlop={6}>
@@ -592,13 +597,31 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
           setSceneVenue(null);
           onOpenVenue();
         }}
+        onScan={sceneVenue && (sceneVenue.can_edit || isAdmin) ? () => setScanVenue(sceneVenue) : undefined}
+      />
+
+      <CafeScanner
+        venue={scanVenue}
+        onClose={() => setScanVenue(null)}
+        onSaved={(layout) => {
+          const id = scanVenue?.id;
+          setScanVenue(null);
+          if (!id) return;
+          // Hemen yeni profille göster, sonra sunucudan tazele.
+          setVenues((list) => list.map((v) => (v.id === id ? { ...v, layout } : v)));
+          setSceneVenue((cur) => (cur && cur.id === id ? { ...cur, layout } : cur));
+          if (coords) fetchVenues(coords.lat, coords.lng);
+        }}
       />
 
       <AddVenueModal
         visible={adding}
         coords={coords}
         onClose={() => setAdding(false)}
-        onAdded={() => fetchVenues(coords.lat, coords.lng)}
+        onAdded={(id) => {
+          pendingScan.current = id;
+          fetchVenues(coords.lat, coords.lng);
+        }}
       />
     </View>
   );
@@ -665,26 +688,9 @@ const makeStyles = (c: Palette) =>
       left: 16,
       right: 16,
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
       alignItems: 'center',
     },
-    brandChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.glass,
-      borderRadius: 22,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderWidth: 1,
-      borderColor: c.border,
-      shadowColor: c.shadow,
-      shadowOpacity: c.shadowOpacity * 0.6,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 5 },
-    },
-    brandDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
-    brandText: { color: c.text, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
-    gpsText: { color: c.muted, fontSize: 12, fontWeight: '600', marginLeft: 8 },
     topButtons: { flexDirection: 'row' },
     roundBtn: {
       width: 42,

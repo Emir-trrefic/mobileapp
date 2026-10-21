@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
 import SplashIntro from './components/SplashIntro';
+import Warmup3D from './components/Warmup3D';
 import { Pane, Screen } from './components/Transition';
 import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
@@ -309,6 +310,7 @@ function AppShell() {
         <StatusBar style={barStyle} />
 
         <LocationHeartbeat active={active} onEnded={loadActive} />
+      <Warmup3D />
 
         {/* Harita hep açık kalır (konum ve harita yeniden yüklenmesin diye sadece gizlenir) */}
         <Pane visible={tab === 'map'} keepMounted from={tabFrom}>

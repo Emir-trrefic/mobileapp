@@ -11,7 +11,7 @@ type Props = {
   visible: boolean;
   coords: { lat: number; lng: number } | null;
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (venueId: string | null) => void; // eklenen kafenin kimliği (tarama ekranı açılsın diye)
 };
 
 const RADII = [50, 80, 150, 300];
@@ -32,7 +32,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
     }
     setError(null);
     setBusy(true);
-    const { error: err } = await supabase.rpc('add_venue', {
+    const { data, error: err } = await supabase.rpc('add_venue', {
       p_name: name.trim(),
       p_lat: coords.lat,
       p_lng: coords.lng,
@@ -45,7 +45,7 @@ export default function AddVenueModal({ visible, coords, onClose, onAdded }: Pro
       return;
     }
     setName('');
-    onAdded();
+    onAdded(typeof data === 'string' ? data : null);
     onClose();
   }
 

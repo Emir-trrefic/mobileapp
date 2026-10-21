@@ -5,6 +5,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from './AnimatedButton';
 import { CAFE_BG, buildCafeHtml } from '../lib/cafe3dHtml';
+import { normalizeLayout } from '../lib/cafeLayout';
 import { tap } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import type { Venue } from '../lib/types';
@@ -19,17 +20,24 @@ type Props = {
   onClose: () => void;
   onCheckIn: () => void;
   onOpenVenue: () => void;
+  onScan?: () => void; // verilirse "Tara" düğmesi görünür (yönetici / demo kafenin sahibi)
 };
 
 // Haritada bir kafeye dokununca açılan 3D kafe. O an kafede kaç kişi varsa o kadar örnek karakter görünür
 // (kimseyi temsil etmez). Kafenin kendi 3D modeli (venue.model_url) varsa o, yoksa örnek kafe çizilir.
-export default function CafeScene({ venue, distance, canCheckIn, here, busy, onClose, onCheckIn, onOpenVenue }: Props) {
+export default function CafeScene({ venue, distance, canCheckIn, here, busy, onClose, onCheckIn, onOpenVenue, onScan }: Props) {
   const insets = useInsets();
   const fade = useRef(new Animated.Value(0)).current;
   const [shown, setShown] = useState<Venue | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  // Aynı kafenin güncel hali (kişi sayısı, tarama sonrası yeni profil) gelirse bilgileri tazele;
+  // sahne yeniden yüklenmez, aşağıda yerinde güncellenir.
+  useEffect(() => {
+    if (venue && shown && venue.id === shown.id && venue !== shown) setShown(venue);
+  }, [venue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (venue) {
@@ -62,10 +70,23 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
   }, [shown, ready, attempt]);
 
   const count = shown ? peopleCount(shown) : 0;
-  const html = useMemo(
-    () => (shown ? buildCafeHtml({ people: count, seed: shown.id, modelUrl: shown.model_url }) : ''),
-    [shown?.id, count, shown?.model_url], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const web = useRef<WebView>(null);
+  const sig = shown ? `${JSON.stringify(shown.layout ?? null)}|${count}` : '';
+  const builtSig = useRef('');
+  // Sayfa sadece kafe (ya da tekrar deneme) değişince kurulur.
+  const html = useMemo(() => {
+    if (!shown) return '';
+    builtSig.current = sig;
+    return buildCafeHtml({ people: count, seed: shown.id, layout: normalizeLayout(shown.layout, shown.id), modelUrl: shown.model_url });
+  }, [shown?.id, shown?.model_url, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Kişi sayısı ya da profil değişince sahne sayfa yenilenmeden güncellenir (akıcılık için).
+  useEffect(() => {
+    if (!ready || !shown || sig === builtSig.current) return;
+    builtSig.current = sig;
+    const layout = JSON.stringify(normalizeLayout(shown.layout, shown.id));
+    web.current?.injectJavaScript(`window.applyScene && window.applyScene(${layout}, ${count}); true;`);
+  }, [sig, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onMessage(e: WebViewMessageEvent) {
     let m: { type?: string; hit?: boolean } = {};
@@ -84,6 +105,7 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, { opacity: fade }]}>
       <WebView
+        ref={web}
         key={`${shown.id}:${attempt}`}
         style={styles.web}
         containerStyle={styles.web}
@@ -135,6 +157,12 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
         <Pressable style={styles.close} onPress={onClose} hitSlop={10} accessibilityLabel="Haritaya dön">
           <Ionicons name="chevron-down" size={24} color="#F4F6FB" />
         </Pressable>
+        {onScan ? (
+          <Pressable style={styles.scan} onPress={onScan} hitSlop={8} accessibilityLabel="Kafeyi tara">
+            <Ionicons name="scan-outline" size={18} color="#F4F6FB" />
+            <Text style={styles.scanText}>Tara</Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
 
       <Animated.View
@@ -190,7 +218,19 @@ const styles = StyleSheet.create({
     backgroundColor: CAFE_BG,
   },
   failText: { color: '#C9D2E8', fontSize: 15, textAlign: 'center', lineHeight: 21 },
-  top: { position: 'absolute', left: 16, right: 16, top: 0, flexDirection: 'row' },
+  top: { position: 'absolute', left: 16, right: 16, top: 0, flexDirection: 'row', justifyContent: 'space-between' },
+  scan: {
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(8,16,40,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(183,200,255,0.18)',
+  },
+  scanText: { color: '#F4F6FB', fontSize: 15, fontWeight: '700' },
   close: {
     width: 44,
     height: 44,

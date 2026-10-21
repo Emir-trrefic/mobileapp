@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "expo": "~57.0.30",
     "expo-haptics": "~57.0.3",
+    "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
     "expo-location": "~57.0.21",
