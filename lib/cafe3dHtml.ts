@@ -21,7 +21,7 @@ export type CafeSceneParams = {
   seed: string;
   layout: CafeLayout;
   modelUrl?: string | null;
-  mode?: 'view' | 'edit'; // edit: düzenleyicideki önizleme (giriş kısa, kadraj ortalı)
+  mode?: 'view' | 'edit' | 'sheet'; // edit: düzenleyici önizlemesi; sheet: haritanın üstündeki kart (kadraj ortalı)
 };
 
 const safeJson = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
@@ -81,6 +81,7 @@ const P = __PARAMS__;
 const post = window.__post;
 const PAL = P.palettes;
 const EDIT = P.mode === 'edit';
+const SHEET = P.mode === 'sheet';
 
 // ------------------------------------------------------------ yardımcılar
 function rng(seed) {
@@ -160,8 +161,8 @@ function frameFor(W, D) {
   const s = Math.max(W, D) / 9;
   const fit = Math.max(1, 0.78 / (window.innerWidth / window.innerHeight));
   // Görüntüleme modunda kafe alttaki bilgi kartının üstünde kalsın diye hedef biraz aşağıda.
-  view.target = EDIT ? new THREE.Vector3(0.2 * s, -0.6 * s, 0.6 * s) : new THREE.Vector3(0.6 * s, -1.0 * s, 1.2 * s);
-  view.radius = (EDIT ? 17 : 13.8) * fit * s;
+  view.target = EDIT || SHEET ? new THREE.Vector3(0.2 * s, -0.6 * s, 0.6 * s) : new THREE.Vector3(0.6 * s, -1.0 * s, 1.2 * s);
+  view.radius = (EDIT ? 17 : SHEET ? 16 : 13.8) * fit * s;
   controls.minDistance = view.radius * 0.6;
   controls.maxDistance = view.radius * 1.45;
 }
@@ -560,10 +561,16 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 });
 controls.addEventListener('start', () => { lastInput = performance.now(); controls.autoRotate = false; });
 controls.addEventListener('end', () => { lastInput = performance.now(); });
+// Görünüm boyutu değişince (ör. kart büyütülünce) kamera yeni orana göre yumuşakça yeniden kadrajlanır.
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  if (built && introDone) {
+    const r0 = camera.position.distanceTo(controls.target);
+    frameFor(built.W, built.D);
+    refit = { from: controls.target.clone(), to: view.target.clone(), r0, r1: view.radius, t: performance.now() };
+  }
 });
 
 // ------------------------------------------------------------ döngü

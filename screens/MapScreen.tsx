@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -89,8 +89,8 @@ function VenueMarker({
   );
 }
 
-// Alttaki yana kayan mekan kartı.
-function VenueCard({
+// Alttaki yana kayan mekan kartı. memo: kaydırırken sadece değişen kart yeniden çizilir (akıcılık).
+const VenueCard = memo(function VenueCard({
   venue,
   width,
   selected,
@@ -99,6 +99,7 @@ function VenueCard({
   distance,
   accuracy,
   onSelect,
+  onOpen3D,
   onCheckIn,
   onOpenVenue,
 }: {
@@ -109,8 +110,9 @@ function VenueCard({
   accuracy: number; // GPS doğruluğu (m)
   here: boolean;
   busy: boolean;
-  onSelect: () => void;
-  onCheckIn: () => void;
+  onSelect: (id: string) => void; // haritada konumuna git
+  onOpen3D: (id: string) => void; // 3D halini aç
+  onCheckIn: (id: string) => void;
   onOpenVenue: () => void;
 }) {
   const c = useColors();
@@ -138,7 +140,7 @@ function VenueCard({
         ],
       }}
     >
-      <Pressable onPress={onSelect} onPressIn={() => to(0.98)} onPressOut={() => to(1)} style={[styles.card, selected && styles.cardSelected]}>
+      <Pressable onPress={() => onSelect(venue.id)} onPressIn={() => to(0.98)} onPressOut={() => to(1)} style={[styles.card, selected && styles.cardSelected]}>
         <View style={styles.cardTop}>
           <View style={styles.emojiTile}>
             <Ionicons name={categoryIcon(venue.category)} size={24} color={c.accent} />
@@ -165,14 +167,22 @@ function VenueCard({
           <Text style={styles.liveCount}>
             {peopleCount(venue) > 0 ? `${peopleCount(venue)} kişi şu an burada` : 'Şu an kimse yok'}
           </Text>
-          <Text style={styles.view3d}>3D gör</Text>
-          <Ionicons name="cube-outline" size={16} color={c.accentLight} />
+          <Pressable
+            style={styles.view3dBtn}
+            onPress={() => onOpen3D(venue.id)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${venueTitle(venue.name)} 3D gör`}
+          >
+            <Ionicons name="cube-outline" size={15} color={c.accentLight} />
+            <Text style={styles.view3d}>3D gör</Text>
+          </Pressable>
         </View>
 
         {here ? (
-          <AnimatedButton title="Buradasın · Kişileri gör" icon="people" variant="soft" onPress={onOpenVenue} compact />
+          <AnimatedButton title="Buradasın · Kişileri gör" icon="people" variant="soft" onPress={onOpenVenue} compact noEnter />
         ) : inRange ? (
-          <AnimatedButton title="Check-in yap" icon="location" onPress={onCheckIn} loading={busy} compact />
+          <AnimatedButton title="Check-in yap" icon="location" onPress={() => onCheckIn(venue.id)} loading={busy} compact noEnter />
         ) : (
           <AnimatedButton
             title={`${Math.max(1, Math.round(distance - Math.min(accuracy, 25) - venue.radius_m))} m daha yaklaşman gerek`}
@@ -180,12 +190,13 @@ function VenueCard({
             disabled
             onPress={() => {}}
             compact
+            noEnter
           />
         )}
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersive }: Props) {
   const c = useColors();
@@ -274,31 +285,107 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
     if (c) await fetchVenues(c.lat, c.lng);
   }, [gps, fetchVenues]);
 
-  function focusVenue(v: Venue) {
-    setSelectedId(v.id);
-    mapRef.current?.animateToRegion(
-      { latitude: v.lat - 0.0011, longitude: v.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
-      500,
-    );
-  }
+  const venuesRef = useRef(venues);
+  venuesRef.current = venues;
+  const selectedRef = useRef(selectedId);
+  selectedRef.current = selectedId;
 
-  // Pine ya da karta dokununca kafe seçilir ve 3D hali açılır.
+  // Kafeyi seçer ve haritayı o kafeye kaydırır (yakınlık seviyesi korunur).
+  const focusVenue = useCallback((v: Venue) => {
+    setSelectedId(v.id);
+    const r = region.current;
+    const dLat = r ? Math.min(r.latitudeDelta, 0.02) : 0.006;
+    const dLng = r ? Math.min(r.longitudeDelta, 0.02) : 0.006;
+    mapRef.current?.animateToRegion({ latitude: v.lat - dLat * 0.18, longitude: v.lng, latitudeDelta: dLat, longitudeDelta: dLng }, 320);
+  }, []);
+
+  const scrollToVenue = useCallback(
+    (id: string) => {
+      const idx = venuesRef.current.findIndex((x) => x.id === id);
+      if (idx >= 0) listRef.current?.scrollToOffset({ offset: idx * STEP, animated: true });
+    },
+    [STEP],
+  );
+
+  // Pine dokunma: önce kafeyi seçip konumuna gider; seçili pine tekrar dokunulursa 3D açılır.
   function onMarkerPress(v: Venue) {
     tap();
-    const idx = venues.findIndex((x) => x.id === v.id);
-    if (idx >= 0) listRef.current?.scrollToOffset({ offset: idx * STEP, animated: true });
+    if (selectedRef.current === v.id) {
+      openScene(v);
+      return;
+    }
+    scrollToVenue(v.id);
     focusVenue(v);
-    setSceneVenue(v);
   }
 
-  function onMomentumEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / STEP);
-    const v = venues[Math.max(0, Math.min(idx, venues.length - 1))];
-    if (v && v.id !== selectedId) {
-      tap();
+  // Karta dokunma: sadece haritada konumunu gösterir.
+  const onCardSelect = useCallback(
+    (id: string) => {
+      const v = venuesRef.current.find((x) => x.id === id);
+      if (!v) return;
+      if (selectedRef.current !== id) tap();
+      scrollToVenue(id);
       focusVenue(v);
-    }
-  }
+    },
+    [focusVenue, scrollToVenue],
+  );
+
+  const openVenueRef = useRef(onOpenVenue);
+  openVenueRef.current = onOpenVenue;
+  const onOpenVenueStable = useCallback(() => openVenueRef.current(), []);
+
+  // 3D kart açılınca kafe, haritanın üstte görünen kısmında kalsın.
+  const openScene = useCallback((v: Venue) => {
+    setSelectedId(v.id);
+    const r = region.current;
+    const dLat = r ? Math.min(r.latitudeDelta, 0.02) : 0.006;
+    const dLng = r ? Math.min(r.longitudeDelta, 0.02) : 0.006;
+    mapRef.current?.animateToRegion({ latitude: v.lat - dLat * 0.33, longitude: v.lng, latitudeDelta: dLat, longitudeDelta: dLng }, 320);
+    setSceneVenue(v);
+  }, []);
+
+  const onCardOpen3D = useCallback(
+    (id: string) => {
+      const v = venuesRef.current.find((x) => x.id === id);
+      if (v) {
+        tap();
+        openScene(v);
+      }
+    },
+    [openScene],
+  );
+
+  const onCardCheckIn = useCallback((id: string) => {
+    const v = venuesRef.current.find((x) => x.id === id);
+    if (v) checkInRef.current(v);
+  }, []);
+
+  // Kaydırırken ortadaki kart değişince hemen seçilir; harita kaydırma bitince o kafeye gider.
+  const lastIdx = useRef(-1);
+  const onCarouselScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const list = venuesRef.current;
+      const idx = Math.max(0, Math.min(list.length - 1, Math.round(e.nativeEvent.contentOffset.x / STEP)));
+      if (idx === lastIdx.current) return;
+      lastIdx.current = idx;
+      const v = list[idx];
+      if (v && v.id !== selectedRef.current) {
+        tap();
+        setSelectedId(v.id);
+      }
+    },
+    [STEP],
+  );
+
+  const onMomentumEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const list = venuesRef.current;
+      const idx = Math.max(0, Math.min(list.length - 1, Math.round(e.nativeEvent.contentOffset.x / STEP)));
+      const v = list[idx];
+      if (v) focusVenue(v);
+    },
+    [STEP, focusVenue],
+  );
 
   function recenter() {
     if (!coords) return;
@@ -346,6 +433,11 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
       600,
     );
   }
+
+  const checkInRef = useRef<(v: Venue) => void>(() => {});
+  checkInRef.current = (v: Venue) => {
+    checkIn(v);
+  };
 
   async function checkIn(v: Venue) {
     // Check-in anında taze ve yeterince doğru bir GPS ölçümü alınır; sunucu mesafeyi kendisi tekrar doğrular.
@@ -558,8 +650,16 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
             keyExtractor={(v) => v.id}
             showsHorizontalScrollIndicator={false}
             snapToInterval={STEP}
+            snapToAlignment="start"
             decelerationRate="fast"
+            disableIntervalMomentum
+            onScroll={onCarouselScroll}
+            scrollEventThrottle={32}
             onMomentumScrollEnd={onMomentumEnd}
+            initialNumToRender={3}
+            windowSize={5}
+            maxToRenderPerBatch={3}
+            removeClippedSubviews
             getItemLayout={(_, index) => ({ length: STEP, offset: STEP * index, index })}
             contentContainerStyle={{ paddingLeft: 16, paddingRight: width - CARD_W - 16, paddingVertical: 8 }}
             renderItem={({ item }) => (
@@ -571,9 +671,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
                 busy={busyVenue === item.id}
                 distance={distanceMeters(coords.lat, coords.lng, item.lat, item.lng)}
                 accuracy={accuracy}
-                onSelect={() => onMarkerPress(item)}
-                onCheckIn={() => checkIn(item)}
-                onOpenVenue={onOpenVenue}
+                onSelect={onCardSelect}
+                onOpen3D={onCardOpen3D}
+                onCheckIn={onCardCheckIn}
+                onOpenVenue={onOpenVenueStable}
               />
             )}
           />
@@ -752,7 +853,16 @@ const makeStyles = (c: Palette) =>
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10 },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     liveCount: { color: c.text, fontSize: 14, fontWeight: '600', flex: 1 },
-    view3d: { color: c.accentLight, fontSize: 13, fontWeight: '700', marginRight: 4 },
+    view3dBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 12,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: c.accentSoft,
+    },
+    view3d: { color: c.accentLight, fontSize: 13, fontWeight: '700' },
     nameRow: { flexDirection: 'row', alignItems: 'center' },
     demoTag: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: c.accentSoft },
     demoTagText: { color: c.accentLight, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },

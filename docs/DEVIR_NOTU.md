@@ -119,6 +119,12 @@ Sürüm 0.12 (3D mantığı):
 - Haritadaki GPS yazısı kaldırıldı.
 - Mac'te simülatörde kaydırma: fareyle tıklayıp sürükle (izleme dörtgeninde iki parmakla kaydırma simülatöre dokunma olarak gitmeyebilir). Telefonda parmakla her şey kayar.
 
+Sürüm 0.13:
+- Alt kartlar: kaydırınca / karta dokununca sadece harita o kafeye gider (yakınlık korunur), 3D açılmaz. 3D: karttaki "3D gör" ya da seçili pine ikinci dokunuş.
+- 3D artık tam ekran değil: haritanın üstünde alttan açılan yuvarlak köşeli kart (`CafeScene`, three.js 'sheet' modu); büyüt/küçült, haritaya dokununca kapanır. Boyut değişince kamera yeniden kadrajlanır.
+- Akıcılık: kartlar memo, kartlardaki düğmelerde giriş animasyonu yok (noEnter), tek hamlede bir kart (disableIntervalMomentum), seçim kaydırırken anında.
+- 3D yükleme: 12 sn'de hazır olmazsa bir kez kendiliğinden yeniden dener; olmazsa "Tekrar dene".
+
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.

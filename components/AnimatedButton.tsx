@@ -21,6 +21,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   delay?: number; // ekrana geliş gecikmesi (sıralı giriş için)
   leave?: boolean; // basınca önce uçarak çıksın, sonra işlem yapılsın (sayfa değiştiren düğmeler)
+  noEnter?: boolean; // giriş animasyonu olmasın (kayan listelerde akıcılık için)
 };
 
 export default function AnimatedButton({
@@ -35,18 +36,20 @@ export default function AnimatedButton({
   style,
   delay = 0,
   leave,
+  noEnter,
 }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const scale = useRef(new Animated.Value(1)).current;
-  const enter = useRef(new Animated.Value(0)).current; // 0: gizli, 1: yerinde
+  const enter = useRef(new Animated.Value(noEnter ? 1 : 0)).current; // 0: gizli, 1: yerinde
   const out = useRef(new Animated.Value(0)).current; // 0: yerinde, 1: uçup gitti
   const leaving = useRef(false);
 
   // Geliş: aşağıdan yaylanarak büyüyüp yerine oturur.
   useEffect(() => {
+    if (noEnter) return;
     Animated.spring(enter, { toValue: 1, delay, useNativeDriver: true, speed: 9, bounciness: 9 }).start();
-  }, [enter, delay]);
+  }, [enter, delay, noEnter]);
 
   const to = (value: number) =>
     Animated.spring(scale, { toValue: value, useNativeDriver: true, speed: 50, bounciness: 6 }).start();
