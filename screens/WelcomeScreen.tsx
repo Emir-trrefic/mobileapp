@@ -68,7 +68,7 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
             )}
           </Pressable>
         ) : null}
-        <Text style={styles.version}>Sürüm 0.10 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        <Text style={styles.version}>Sürüm 0.11 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );

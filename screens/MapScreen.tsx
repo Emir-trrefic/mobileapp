@@ -20,6 +20,7 @@ import type { Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
+import CafeScene from '../components/CafeScene';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
@@ -31,12 +32,13 @@ import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 import type { ActiveCheckin, Venue } from '../lib/types';
-import { categoryIcon, fmtDistance, venueTitle } from '../lib/venue';
+import { categoryIcon, fmtDistance, peopleCount, venueTitle } from '../lib/venue';
 
 type Props = {
   active: ActiveCheckin | null;
   onCheckedIn: () => void;
   onOpenVenue: () => void;
+  onImmersive?: (on: boolean) => void; // 3D kafe açıkken alt sekme çubuğu gizlensin
 };
 
 const GAP = 12;
@@ -61,7 +63,7 @@ function VenueMarker({
     setTrack(true);
     const t = setTimeout(() => setTrack(false), 900);
     return () => clearTimeout(t);
-  }, [selected, mine, venue.active_count, c.scheme]);
+  }, [selected, mine, venue.active_count, venue.demo_people, c.scheme]);
 
   return (
     <Marker
@@ -74,9 +76,9 @@ function VenueMarker({
       <View style={styles.markerWrap}>
         <View style={[styles.pin, selected && styles.pinSelected, mine && styles.pinMine]}>
           <Ionicons name={categoryIcon(venue.category)} size={20} color={c.accentLight} />
-          {venue.active_count > 0 ? (
+          {peopleCount(venue) > 0 ? (
             <View style={styles.pinBadge}>
-              <Text style={styles.pinBadgeText}>{venue.active_count}</Text>
+              <Text style={styles.pinBadgeText}>{peopleCount(venue)}</Text>
             </View>
           ) : null}
         </View>
@@ -158,10 +160,12 @@ function VenueCard({
         </View>
 
         <View style={styles.liveRow}>
-          <View style={[styles.dot, { backgroundColor: venue.active_count > 0 ? c.success : c.border }]} />
+          <View style={[styles.dot, { backgroundColor: peopleCount(venue) > 0 ? c.success : c.border }]} />
           <Text style={styles.liveCount}>
-            {venue.active_count > 0 ? `${venue.active_count} kişi şu an burada` : 'Şu an kimse yok'}
+            {peopleCount(venue) > 0 ? `${peopleCount(venue)} kişi şu an burada` : 'Şu an kimse yok'}
           </Text>
+          <Text style={styles.view3d}>3D gör</Text>
+          <Ionicons name="cube-outline" size={16} color={c.accentLight} />
         </View>
 
         {here ? (
@@ -182,7 +186,7 @@ function VenueCard({
   );
 }
 
-export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
+export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersive }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -206,6 +210,10 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adding, setAdding] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [sceneVenue, setSceneVenue] = useState<Venue | null>(null); // 3D hali açık olan kafe
+  useEffect(() => {
+    onImmersive?.(!!sceneVenue);
+  }, [sceneVenue]); // eslint-disable-line react-hooks/exhaustive-deps
   const region = useRef<Region | null>(null); // haritanın o anki görünümü (yakınlaştırma düğmeleri için)
 
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
@@ -262,11 +270,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
     );
   }
 
+  // Pine ya da karta dokununca kafe seçilir ve 3D hali açılır.
   function onMarkerPress(v: Venue) {
     tap();
     const idx = venues.findIndex((x) => x.id === v.id);
     if (idx >= 0) listRef.current?.scrollToOffset({ offset: idx * STEP, animated: true });
     focusVenue(v);
+    setSceneVenue(v);
   }
 
   function onMomentumEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -339,6 +349,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
       if (error) Alert.alert('Check-in yapılamadı', error.message);
       else {
         success();
+        setSceneVenue(null);
         onCheckedIn();
       }
     } catch (e) {
@@ -564,6 +575,25 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue }: Props) {
         )}
       </FadeIn>
 
+      <CafeScene
+        venue={sceneVenue}
+        distance={sceneVenue ? distanceMeters(coords.lat, coords.lng, sceneVenue.lat, sceneVenue.lng) : 0}
+        canCheckIn={
+          !!sceneVenue &&
+          distanceMeters(coords.lat, coords.lng, sceneVenue.lat, sceneVenue.lng) - Math.min(accuracy, 25) <= sceneVenue.radius_m
+        }
+        here={!!sceneVenue && active?.venue_id === sceneVenue.id}
+        busy={!!sceneVenue && busyVenue === sceneVenue.id}
+        onClose={() => setSceneVenue(null)}
+        onCheckIn={() => {
+          if (sceneVenue) checkIn(sceneVenue);
+        }}
+        onOpenVenue={() => {
+          setSceneVenue(null);
+          onOpenVenue();
+        }}
+      />
+
       <AddVenueModal
         visible={adding}
         coords={coords}
@@ -715,7 +745,8 @@ const makeStyles = (c: Palette) =>
     cardMeta: { color: c.muted, fontSize: 13, marginTop: 3, lineHeight: 19 },
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10 },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-    liveCount: { color: c.text, fontSize: 14, fontWeight: '600' },
+    liveCount: { color: c.text, fontSize: 14, fontWeight: '600', flex: 1 },
+    view3d: { color: c.accentLight, fontSize: 13, fontWeight: '700', marginRight: 4 },
     nameRow: { flexDirection: 'row', alignItems: 'center' },
     demoTag: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: c.accentSoft },
     demoTagText: { color: c.accentLight, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },

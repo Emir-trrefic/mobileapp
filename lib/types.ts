@@ -10,6 +10,8 @@ export type Venue = {
   distance_m: number;
   active_count: number;
   is_demo?: boolean; // test için eklenen demo kafe
+  demo_people?: number; // demo kafede 3D sahnede gösterilen örnek kişi sayısı (007)
+  model_url?: string | null; // kafenin kendi 3D modeli (007); boşsa örnek kafe gösterilir
 };
 
 export type ActiveCheckin = {

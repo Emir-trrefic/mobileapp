@@ -91,6 +91,7 @@ function AppShell() {
   const [entry, setEntry] = useState<Entry>('welcome');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [quickBusy, setQuickBusy] = useState(false);
+  const [immersive, setImmersive] = useState(false); // haritada 3D kafe açık
   const [intro, setIntro] = useState(true); // açılış animasyonu (her açılışta bir kez)
   const [revealed, setRevealed] = useState(false); // perde açılınca ekranlar çizilmeye başlar
 
@@ -318,6 +319,7 @@ function AppShell() {
               setVenueOpen(true);
             }}
             onOpenVenue={() => setVenueOpen(true)}
+            onImmersive={setImmersive}
           />
         </Pane>
 
@@ -356,7 +358,7 @@ function AppShell() {
               }}
             />
           </Pane>
-        ) : (
+        ) : immersive && tab === 'map' ? null : (
           <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
         )}
       </View>

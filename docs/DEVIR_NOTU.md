@@ -36,12 +36,13 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
+- 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
 - 006: demo kafeler. venues.is_demo + created_by, coğrafi indeks; Kadıköy merkezine sabit 10 demo kafe; seed_demo_cafes(lat,lng) (kullanıcının yanına 10 demo, eskilerini değiştirir), clear_my_demo_cafes(), clear_all_demo_cafes() (yönetici); venues_nearby artık is_demo döndürüyor; add_venue ekleyeni kaydediyor. Yayından önce demo kafeler temizlenmeli ve seed_demo_cafes yetkisi kaldırılmalı.
 
 Gizlilik: telefon/Instagram sadece `my_connections()` üzerinden, sadece kabul edilmiş ve isteği GÖNDEREN kişiye döner. RLS açık, fonksiyonlar SECURITY DEFINER, anon yetkisi yok.
@@ -93,8 +94,20 @@ Sürüm 0.10:
 - Kapak, simge ve isim önerileri tasarımı: https://claude.ai/artifact/8fHw8WeoMCcR2sYFy24XNe (isim adayları: Denk önerildi; karar verilmedi, `BRAND` hâlâ boş).
 - `react-native-svg` eklendi: Codespace'te `npm install` gerekli.
 
+Sürüm 0.11:
+- Haritada kafeye (pin ya da kart) dokununca o kafenin 3D hali açılır (`components/CafeScene.tsx`).
+  3D sahne WebView içinde three.js ile çizilir (`lib/cafe3dHtml.ts`; three.js jsdelivr'dan, sürüm sabit 0.180.0).
+  Neden WebView: expo-gl ile three.js çiziyordu ama görüntü iOS'ta ekrana gelmiyordu; tarayıcı WebGL'i sorunsuz ve gölgeler, glTF yükleme hazır.
+- Sahne: Bruno Simon tarzı oyuncak diorama. Kamera yukarıdan süzülerek gelir, mobilyalar zıplayarak düşer, kişiler sırayla belirir.
+  Sürükle: çevir · İki parmak: yakınlaştır · Karaktere dokun: zıplar. Dokunulmazsa sahne yavaşça salınır.
+- Kişiler: kafedeki kişi sayısı kadar genel örnek karakter (kişisel avatar YOK). Sayı = gerçek check-in + demo_people.
+  007 çalıştırılmadıysa demo kafeler için kafe kimliğinden 1-9 arası sabit sayı türetilir (`peopleCount`, lib/venue.ts).
+- Kafenin kendi modeli: `model_url` doluysa GLTFLoader ile yüklenir, ortalanıp sığdırılır; yüklenemezse örnek kafe. (Gerçek bir modelle henüz denenmedi.)
+- Açılış: halkalar ekranın iki karşı köşesinden kavis çizip dönerek gelir, etraftan noktalar merkeze akar, sonra kesişim dolar.
+- Eski `3d-avatar` dalı artık kullanılmıyor (kişisel avatar fikri bırakıldı); silinebilir.
+
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.
 - Hızlı görsel önizleme için HTML demo yayınlandı (Artifact: https://claude.ai/artifact/DCYP6bsa7Cpc2a8aqBdtfc). Bu demo gerçek uygulama değil, tasarımın tıklanabilir taklidi.
-- Yapılacaklar: gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme ekranı, yayın öncesi hızlı girişi kaldırmak.
+- Yapılacaklar: her kafe için gerçek 3D model (model_url) ve yönetici ekranından bağlama, gerçek zamanlı güncelleme (Realtime), uygulama içi sohbet, engelle/şikayet ekranı, yönetici ekleme ekranı, yayın öncesi hızlı girişi kaldırmak.
