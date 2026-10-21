@@ -20,7 +20,7 @@ import type { Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AddVenueModal from '../components/AddVenueModal';
-import CafeScanner from '../components/CafeScanner';
+import CafeBuilding, { BUILDING_SIZE, buildingTier } from '../components/CafeBuilding';
 import CafeScene from '../components/CafeScene';
 import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
@@ -59,12 +59,13 @@ function VenueMarker({
   const c = useColors();
   const styles = useStyles(makeStyles);
   const [track, setTrack] = useState(true);
+  const tier = buildingTier(venue.my_visits ?? 0);
 
   useEffect(() => {
     setTrack(true);
     const t = setTimeout(() => setTrack(false), 900);
     return () => clearTimeout(t);
-  }, [selected, mine, venue.active_count, venue.demo_people, c.scheme]);
+  }, [selected, mine, venue.active_count, venue.demo_people, tier, c.scheme]);
 
   return (
     <Marker
@@ -72,19 +73,31 @@ function VenueMarker({
       onPress={onPress}
       tracksViewChanges={track}
       anchor={{ x: 0.5, y: 1 }}
-      zIndex={selected ? 10 : 1}
+      zIndex={selected ? 10 : tier > 0 ? 5 : 1}
     >
-      <View style={styles.markerWrap}>
-        <View style={[styles.pin, selected && styles.pinSelected, mine && styles.pinMine]}>
-          <Ionicons name={categoryIcon(venue.category)} size={20} color={c.accentLight} />
+      {tier > 0 ? (
+        // Daha önce gidilen kafe: küçük 3D bina (ziyaret arttıkça büyür)
+        <View style={{ width: BUILDING_SIZE[tier as 1 | 2 | 3] + 12, alignItems: 'center' }}>
+          <CafeBuilding tier={tier as 1 | 2 | 3} selected={selected} here={mine} />
           {peopleCount(venue) > 0 ? (
-            <View style={styles.pinBadge}>
+            <View style={[styles.pinBadge, { top: 2, right: 0 }]}>
               <Text style={styles.pinBadgeText}>{peopleCount(venue)}</Text>
             </View>
           ) : null}
         </View>
-        <View style={[styles.pinTail, selected && styles.pinTailSelected, mine && styles.pinTailMine]} />
-      </View>
+      ) : (
+        <View style={styles.markerWrap}>
+          <View style={[styles.pin, selected && styles.pinSelected, mine && styles.pinMine]}>
+            <Ionicons name={categoryIcon(venue.category)} size={20} color={c.accentLight} />
+            {peopleCount(venue) > 0 ? (
+              <View style={styles.pinBadge}>
+                <Text style={styles.pinBadgeText}>{peopleCount(venue)}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={[styles.pinTail, selected && styles.pinTailSelected, mine && styles.pinTailMine]} />
+        </View>
+      )}
     </Marker>
   );
 }
@@ -99,7 +112,6 @@ const VenueCard = memo(function VenueCard({
   distance,
   accuracy,
   onSelect,
-  onOpen3D,
   onCheckIn,
   onOpenVenue,
 }: {
@@ -110,8 +122,7 @@ const VenueCard = memo(function VenueCard({
   accuracy: number; // GPS doğruluğu (m)
   here: boolean;
   busy: boolean;
-  onSelect: (id: string) => void; // haritada konumuna git
-  onOpen3D: (id: string) => void; // 3D halini aç
+  onSelect: (id: string) => void; // seçili değilse konumuna git, seçiliyse 3D halini aç
   onCheckIn: (id: string) => void;
   onOpenVenue: () => void;
 }) {
@@ -167,16 +178,6 @@ const VenueCard = memo(function VenueCard({
           <Text style={styles.liveCount}>
             {peopleCount(venue) > 0 ? `${peopleCount(venue)} kişi şu an burada` : 'Şu an kimse yok'}
           </Text>
-          <Pressable
-            style={styles.view3dBtn}
-            onPress={() => onOpen3D(venue.id)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`${venueTitle(venue.name)} 3D gör`}
-          >
-            <Ionicons name="cube-outline" size={15} color={c.accentLight} />
-            <Text style={styles.view3d}>3D gör</Text>
-          </Pressable>
         </View>
 
         {here ? (
@@ -223,8 +224,6 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const [adding, setAdding] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [sceneVenue, setSceneVenue] = useState<Venue | null>(null); // 3D hali açık olan kafe
-  const [scanVenue, setScanVenue] = useState<Venue | null>(null); // taranan (3D profili düzenlenen) kafe
-  const pendingScan = useRef<string | null>(null); // yeni eklenen kafe listede görününce tarama açılır
   useEffect(() => {
     onImmersive?.(!!sceneVenue);
   }, [sceneVenue]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -239,15 +238,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
     anchor.current = { lat, lng };
     const list = (data ?? []) as Venue[];
     setVenues(list);
-    // Açık sahne / tarama, kafenin güncel haliyle sürsün.
+    // Açık 3D sahne, kafenin güncel haliyle (kişi sayısı) sürsün.
     setSceneVenue((cur) => (cur ? (list.find((v) => v.id === cur.id) ?? cur) : cur));
-    if (pendingScan.current) {
-      const v = list.find((x) => x.id === pendingScan.current);
-      if (v) {
-        pendingScan.current = null;
-        setScanVenue(v);
-      }
-    }
     setSelectedId((cur) => (cur && list.some((v) => v.id === cur) ? cur : (list[0]?.id ?? null)));
   }, []);
 
@@ -318,12 +310,21 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
     focusVenue(v);
   }
 
-  // Karta dokunma: sadece haritada konumunu gösterir.
+  // Karta dokunma: seçili değilse haritada konumuna gider; ortadaki (seçili) karta dokununca 3D açılır.
+  // Kaydırma biter bitmez gelen dokunuşlar 3D açmaz (yanlışlıkla açılmasın diye).
+  const lastScrollAt = useRef(0);
   const onCardSelect = useCallback(
     (id: string) => {
       const v = venuesRef.current.find((x) => x.id === id);
       if (!v) return;
-      if (selectedRef.current !== id) tap();
+      if (selectedRef.current === id) {
+        if (Date.now() - lastScrollAt.current > 450) {
+          tap();
+          openSceneRef.current(v);
+        }
+        return;
+      }
+      tap();
       scrollToVenue(id);
       focusVenue(v);
     },
@@ -344,16 +345,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
     setSceneVenue(v);
   }, []);
 
-  const onCardOpen3D = useCallback(
-    (id: string) => {
-      const v = venuesRef.current.find((x) => x.id === id);
-      if (v) {
-        tap();
-        openScene(v);
-      }
-    },
-    [openScene],
-  );
+  const openSceneRef = useRef(openScene);
+  openSceneRef.current = openScene;
 
   const onCardCheckIn = useCallback((id: string) => {
     const v = venuesRef.current.find((x) => x.id === id);
@@ -364,6 +357,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const lastIdx = useRef(-1);
   const onCarouselScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      lastScrollAt.current = Date.now();
       const list = venuesRef.current;
       const idx = Math.max(0, Math.min(list.length - 1, Math.round(e.nativeEvent.contentOffset.x / STEP)));
       if (idx === lastIdx.current) return;
@@ -672,7 +666,6 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
                 distance={distanceMeters(coords.lat, coords.lng, item.lat, item.lng)}
                 accuracy={accuracy}
                 onSelect={onCardSelect}
-                onOpen3D={onCardOpen3D}
                 onCheckIn={onCardCheckIn}
                 onOpenVenue={onOpenVenueStable}
               />
@@ -698,31 +691,13 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
           setSceneVenue(null);
           onOpenVenue();
         }}
-        onScan={sceneVenue && (sceneVenue.can_edit || isAdmin) ? () => setScanVenue(sceneVenue) : undefined}
-      />
-
-      <CafeScanner
-        venue={scanVenue}
-        onClose={() => setScanVenue(null)}
-        onSaved={(layout) => {
-          const id = scanVenue?.id;
-          setScanVenue(null);
-          if (!id) return;
-          // Hemen yeni profille göster, sonra sunucudan tazele.
-          setVenues((list) => list.map((v) => (v.id === id ? { ...v, layout } : v)));
-          setSceneVenue((cur) => (cur && cur.id === id ? { ...cur, layout } : cur));
-          if (coords) fetchVenues(coords.lat, coords.lng);
-        }}
       />
 
       <AddVenueModal
         visible={adding}
         coords={coords}
         onClose={() => setAdding(false)}
-        onAdded={(id) => {
-          pendingScan.current = id;
-          fetchVenues(coords.lat, coords.lng);
-        }}
+        onAdded={() => fetchVenues(coords.lat, coords.lng)}
       />
     </View>
   );
@@ -853,16 +828,6 @@ const makeStyles = (c: Palette) =>
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10 },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     liveCount: { color: c.text, fontSize: 14, fontWeight: '600', flex: 1 },
-    view3dBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      paddingHorizontal: 12,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: c.accentSoft,
-    },
-    view3d: { color: c.accentLight, fontSize: 13, fontWeight: '700' },
     nameRow: { flexDirection: 'row', alignItems: 'center' },
     demoTag: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: c.accentSoft },
     demoTagText: { color: c.accentLight, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },

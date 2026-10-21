@@ -13,6 +13,7 @@ export type Venue = {
   demo_people?: number; // demo kafede 3D sahnede gösterilen örnek kişi sayısı (007)
   model_url?: string | null; // kafenin kendi 3D modeli (007); boşsa profilden çizilir
   layout?: unknown; // kafenin 3D profili (008) → lib/cafeLayout.ts normalizeLayout
+  my_visits?: number; // bu kullanıcının bu kafeye kaç kez gittiği (009)
   can_edit?: boolean; // bu kullanıcı kafenin 3D profilini düzenleyebilir mi (008)
 };
 

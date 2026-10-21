@@ -190,8 +190,8 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
         <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
             <View style={styles.livePill}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Canlı · {remaining} kaldı</Text>
+              <Ionicons name="time-outline" size={13} color={c.success} />
+              <Text style={styles.liveText}>{remaining} kaldı</Text>
             </View>
             <Text style={styles.title} numberOfLines={2}>
               {venueTitle(active.venue_name)}

@@ -20,13 +20,12 @@ type Props = {
   onClose: () => void;
   onCheckIn: () => void;
   onOpenVenue: () => void;
-  onScan?: () => void; // verilirse "Tara" düğmesi görünür (yönetici / demo kafenin sahibi)
 };
 
 // Kafenin 3D hali: haritanın üstünde, alttan kayarak açılan yuvarlak köşeli bir kart (harita üstte görünür kalır).
 // Büyüt düğmesiyle tam ekrana geçer; üstteki haritaya dokununca ya da aşağı okla kapanır. O an kafede kaç kişi
 // varsa o kadar örnek karakter görünür (kimseyi temsil etmez). Kafenin kendi 3D modeli varsa o, yoksa profilden çizilir.
-export default function CafeScene({ venue, distance, canCheckIn, here, busy, onClose, onCheckIn, onOpenVenue, onScan }: Props) {
+export default function CafeScene({ venue, distance, canCheckIn, here, busy, onClose, onCheckIn, onOpenVenue }: Props) {
   const insets = useInsets();
   const { height: screenH } = useWindowDimensions();
   const fade = useRef(new Animated.Value(0)).current;
@@ -169,11 +168,6 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
                 </Text>
               </View>
             </View>
-            {onScan ? (
-              <Pressable style={styles.iconBtn} onPress={onScan} hitSlop={6} accessibilityLabel="Kafeyi tara">
-                <Ionicons name="scan-outline" size={19} color="#F4F6FB" />
-              </Pressable>
-            ) : null}
             <Pressable style={styles.iconBtn} onPress={toggleExpand} hitSlop={6} accessibilityLabel={expanded ? 'Küçült' : 'Büyüt'}>
               <Ionicons name={expanded ? 'contract-outline' : 'expand-outline'} size={19} color="#F4F6FB" />
             </Pressable>

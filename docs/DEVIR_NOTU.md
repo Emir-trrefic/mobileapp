@@ -36,12 +36,13 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
+- 009: ziyaretler. venues_nearby artık my_visits (kullanıcının o kafeye kaç kez check-in yaptığı) döndürüyor; checkins(user_id, venue_id) indeksi. Dosyanın sonunda kafeye 3D profil girme örneği (update ... set layout).
 - 008: kafe 3D profili. venues.layout (jsonb: v, size, style, wall, floor, accent, counter, tables, plants, windows; renkler palet sırası), is_valid_cafe_layout, can_edit_venue (yönetici ya da demo kafenin sahibi), set_venue_layout, venues_nearby artık layout ve can_edit döndürüyor.
 - 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
 - 006: demo kafeler. venues.is_demo + created_by, coğrafi indeks; Kadıköy merkezine sabit 10 demo kafe; seed_demo_cafes(lat,lng) (kullanıcının yanına 10 demo, eskilerini değiştirir), clear_my_demo_cafes(), clear_all_demo_cafes() (yönetici); venues_nearby artık is_demo döndürüyor; add_venue ekleyeni kaydediyor. Yayından önce demo kafeler temizlenmeli ve seed_demo_cafes yetkisi kaldırılmalı.
@@ -124,6 +125,12 @@ Sürüm 0.13:
 - 3D artık tam ekran değil: haritanın üstünde alttan açılan yuvarlak köşeli kart (`CafeScene`, three.js 'sheet' modu); büyüt/küçült, haritaya dokununca kapanır. Boyut değişince kamera yeniden kadrajlanır.
 - Akıcılık: kartlar memo, kartlardaki düğmelerde giriş animasyonu yok (noEnter), tek hamlede bir kart (disableIntervalMomentum), seçim kaydırırken anında.
 - 3D yükleme: 12 sn'de hazır olmazsa bir kez kendiliğinden yeniden dener; olmazsa "Tekrar dene".
+
+Sürüm 0.14:
+- Tarama uygulamadan kaldırıldı (CafeScanner silindi, expo-image-manipulator çıkarıldı). Kafe 3D profillerini biz SQL'den yüklüyoruz (009'un sonundaki örnek). set_venue_layout/can_edit veritabanında duruyor (ileride yönetim paneli için).
+- "3D gör" düğmesi kaldırıldı: ortadaki (seçili) karta dokununca ya da seçili pine tekrar dokununca 3D açılır; kaydırma bitince gelen dokunuş 3D açmaz.
+- Kafe ekranındaki "Canlı" yazısı kaldırıldı (kalan süre saat simgesiyle).
+- Snapchat benzeri: daha önce gidilen kafe haritada pin yerine izometrik küçük bir kafe binası (`components/CafeBuilding.tsx`): 1 ziyaret küçük, 2-4 büyük, 5+ iki katlı. Şu an check-in'li olduğun kafenin çatısı yeşil.
 
 ## 8. Önemli notlar
 
