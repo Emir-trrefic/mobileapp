@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Logo from '../components/Logo';
+import { tap } from '../lib/haptics';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
 import { BRAND, useColors, useStyles } from '../lib/theme';
@@ -60,7 +61,15 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
         </Animated.Text>
         {/* Geliştirme sırasında e-posta/şifre olmadan hızlı giriş (yayın sürümünde görünmez) */}
         {__DEV__ && onQuick ? (
-          <Pressable onPress={onQuick} disabled={quickBusy} hitSlop={10} style={styles.quick}>
+          <Pressable
+            onPress={() => {
+              tap();
+              onQuick();
+            }}
+            disabled={quickBusy}
+            hitSlop={10}
+            style={styles.quick}
+          >
             {quickBusy ? (
               <ActivityIndicator color={c.muted} />
             ) : (

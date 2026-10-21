@@ -140,6 +140,11 @@ Sürüm 0.15 (hesap güvenliği, ayrıntı: docs/GUVENLIK.md):
 - Hızlı giriş (test) duruyor.
 - Panelde yapılacaklar: Confirm email AÇ, e-posta şablonlarına {{ .Token }}, şifre en az 8 + kurallar, kendi SMTP'ni bağla (docs/GUVENLIK.md).
 
+Sürüm 0.16:
+- Klavye: kurulum adımlarında (iletişim, ilgi alanları, hakkında) dokunulan kutu klavyenin üstüne kaydırılır; klavye açıkken başlık küçülür, alt yazı gizlenir.
+- Titreşim: tüm düğmelerde dokunuşta hafif titreşim (ana düğmede biraz daha belirgin), giriş ekranı bağlantıları, hızlı giriş, harita ve 3D kapat düğmeleri dahil (`lib/haptics.ts`).
+- Not: iPhone klavye tuşlarının tık titreşimi sistem ayarıdır (Ayarlar > Ses ve Dokunuş > Klavye Geri Bildirimi > Dokunuş); uygulama bunu açamaz.
+
 ## 8. Önemli notlar
 
 - Uygulama hiç yapay zekanın ortamında çalıştırılamadı (npm kurulamıyor). Tip kontrolü (`tsc`) SDK 57 paketleriyle geçiyor; uygulama yine de sadece telefonda test ediliyor.

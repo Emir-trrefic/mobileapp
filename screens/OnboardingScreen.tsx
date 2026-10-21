@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  LayoutChangeEvent,
   Easing,
   Keyboard,
   Pressable,
@@ -192,10 +193,21 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     setStep((s) => s + 1);
   }
 
-  // Alttaki alan odaklanınca klavyenin üstünde görünsün diye sayfayı sona kaydır.
-  function revealEnd() {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 280);
-  }
+  // Klavye açılınca odaklanan kutu, klavyenin ve Devam düğmesinin üstünde görünür kalsın diye sayfa
+  // o kutuya kaydırılır (kutuların sayfa içindeki yerleri onLayout ile tutulur).
+  const fieldY = useRef<Record<string, number>>({});
+  const bodyY = useRef(0);
+  const at = (k: string) => ({
+    onLayout: (e: LayoutChangeEvent) => {
+      fieldY.current[k] = e.nativeEvent.layout.y;
+    },
+  });
+  const focusTo = (k: string) => () => {
+    setTimeout(() => {
+      const y = fieldY.current[k];
+      if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, bodyY.current + y - 12), animated: true });
+    }, 280);
+  };
 
   function back() {
     Keyboard.dismiss();
@@ -255,40 +267,49 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
           showsVerticalScrollIndicator={false}
         >
           <Animated.View
+            onLayout={(e) => {
+              bodyY.current = e.nativeEvent.layout.y;
+            }}
             style={{
               opacity: slide,
               transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [30 * dir, 0] }) }],
             }}
           >
-            <Text style={styles.title}>{titles[step].t}</Text>
-            <Text style={styles.subtitle}>{titles[step].s}</Text>
+            <Text style={[styles.title, keyboard > 0 && styles.titleCompact]}>{titles[step].t}</Text>
+            {keyboard > 0 ? <View style={{ height: 14 }} /> : <Text style={styles.subtitle}>{titles[step].s}</Text>}
 
             {step === 0 && (
               <>
-                <AnimatedInput
-                  label="Adın"
-                  value={name}
-                  onChangeText={setName}
-                  maxLength={40}
-                  autoFocus
-                  autoCapitalize="words"
-                  autoComplete="given-name"
-                  textContentType="givenName"
-                  returnKeyType="next"
-                  onSubmitEditing={() => lastNameRef.current?.focus()}
-                />
-                <AnimatedInput
-                  ref={lastNameRef}
-                  label="Soyadın (isteğe bağlı, gizli)"
-                  value={lastName}
-                  onChangeText={setLastName}
-                  maxLength={40}
-                  autoCapitalize="words"
-                  autoComplete="family-name"
-                  textContentType="familyName"
-                  returnKeyType="next"
-                  onSubmitEditing={next}
-                />
+                <View {...at('f0')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f0')}
+                    label="Adın"
+                    value={name}
+                    onChangeText={setName}
+                    maxLength={40}
+                    autoFocus
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    textContentType="givenName"
+                    returnKeyType="next"
+                    onSubmitEditing={() => lastNameRef.current?.focus()}
+                  />
+                </View>
+                <View {...at('f1')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f1')}
+                    ref={lastNameRef}
+                    label="Soyadın (isteğe bağlı, gizli)"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    maxLength={40}
+                    autoCapitalize="words"
+                    autoComplete="family-name"
+                    textContentType="familyName"
+                    returnKeyType="next"
+                    onSubmitEditing={next}
+                  />
+                </View>
                 {name.trim() && !nameOk(name) ? (
                   <Text style={styles.warn}>Ad sadece harflerden oluşmalı (en az 2 harf).</Text>
                 ) : lastName.trim() && !nameOk(lastName, 1) ? (
@@ -304,17 +325,20 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
             {step === 1 && (
               <>
-                <AnimatedInput
-                  ref={yearRef}
-                  label="Doğum yılı (örn. 2001)"
-                  value={year}
-                  onChangeText={(t) => setYear(t.replace(/[^0-9]/g, ''))}
-                  maxLength={4}
-                  autoFocus
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={next}
-                />
+                <View {...at('f2')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f2')}
+                    ref={yearRef}
+                    label="Doğum yılı (örn. 2001)"
+                    value={year}
+                    onChangeText={(t) => setYear(t.replace(/[^0-9]/g, ''))}
+                    maxLength={4}
+                    autoFocus
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    onSubmitEditing={next}
+                  />
+                </View>
                 {year.length === 4 && birthYear === null ? (
                   <Text style={styles.warn}>
                     {Number(year) > new Date().getFullYear() - MIN_AGE
@@ -364,58 +388,69 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
             {step === 4 && (
               <>
-                <AnimatedInput
-                  label="Telefon (örn. 0532 123 45 67)"
-                  value={phone}
-                  onChangeText={setPhone}
-                  maxLength={20}
-                  autoFocus
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  returnKeyType="next"
-                  onSubmitEditing={() => instaRef.current?.focus()}
-                />
-                <AnimatedInput
-                  ref={instaRef}
-                  onFocus={revealEnd}
-                  label="Instagram (örn. @kullaniciadi)"
-                  value={insta}
-                  onChangeText={setInsta}
-                  maxLength={40}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={next}
-                />
+                <View {...at('f3')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f3')}
+                    label="Telefon (örn. 0532 123 45 67)"
+                    value={phone}
+                    onChangeText={setPhone}
+                    maxLength={20}
+                    autoFocus
+                    keyboardType="phone-pad"
+                    textContentType="telephoneNumber"
+                    returnKeyType="next"
+                    onSubmitEditing={() => instaRef.current?.focus()}
+                  />
+                </View>
+                <View {...at('f4')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f4')}
+                    ref={instaRef}
+                                      label="Instagram (örn. @kullaniciadi)"
+                    value={insta}
+                    onChangeText={setInsta}
+                    maxLength={40}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={next}
+                  />
+                </View>
                 {showLinks ? (
                   <>
-                    <AnimatedInput
-                      onFocus={revealEnd}
-                      label="TikTok (isteğe bağlı)"
-                      value={tiktok}
-                      onChangeText={setTiktok}
-                      maxLength={60}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                    <AnimatedInput
-                      onFocus={revealEnd}
-                      label="X (isteğe bağlı)"
-                      value={xHandle}
-                      onChangeText={setXHandle}
-                      maxLength={60}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                    <AnimatedInput
-                      onFocus={revealEnd}
-                      label="LinkedIn (isteğe bağlı)"
-                      value={linkedin}
-                      onChangeText={setLinkedin}
-                      maxLength={120}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                    <View {...at('f5')}>
+                      <AnimatedInput
+                        onFocus={focusTo('f5')}
+                                              label="TikTok (isteğe bağlı)"
+                        value={tiktok}
+                        onChangeText={setTiktok}
+                        maxLength={60}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                    <View {...at('f6')}>
+                      <AnimatedInput
+                        onFocus={focusTo('f6')}
+                                              label="X (isteğe bağlı)"
+                        value={xHandle}
+                        onChangeText={setXHandle}
+                        maxLength={60}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                    <View {...at('f7')}>
+                      <AnimatedInput
+                        onFocus={focusTo('f7')}
+                                              label="LinkedIn (isteğe bağlı)"
+                        value={linkedin}
+                        onChangeText={setLinkedin}
+                        maxLength={120}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
                   </>
                 ) : (
                   <Pressable style={styles.moreLinks} onPress={() => setShowLinks(true)} hitSlop={6}>
@@ -434,23 +469,28 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
             {step === 5 && (
               <>
-                <AnimatedInput
-                  label="Meslek / okul (isteğe bağlı)"
-                  value={job}
-                  onChangeText={setJob}
-                  maxLength={60}
-                  returnKeyType="next"
-                  onSubmitEditing={() => bioRef.current?.focus()}
-                />
-                <AnimatedInput
-                  ref={bioRef}
-                  onFocus={revealEnd}
-                  tall
-                  label="Kısa tanıtım (isteğe bağlı)"
-                  value={bio}
-                  onChangeText={setBio}
-                  maxLength={160}
-                />
+                <View {...at('f8')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f8')}
+                    label="Meslek / okul (isteğe bağlı)"
+                    value={job}
+                    onChangeText={setJob}
+                    maxLength={60}
+                    returnKeyType="next"
+                    onSubmitEditing={() => bioRef.current?.focus()}
+                  />
+                </View>
+                <View {...at('f9')}>
+                  <AnimatedInput
+                    onFocus={focusTo('f9')}
+                    ref={bioRef}
+                                      tall
+                    label="Kısa tanıtım (isteğe bağlı)"
+                    value={bio}
+                    onChangeText={setBio}
+                    maxLength={160}
+                  />
+                </View>
                 <Text style={styles.bioCount}>{bio.length}/160</Text>
 
                 {/* Başkalarının seni nasıl göreceği */}
@@ -514,6 +554,7 @@ const makeStyles = (c: Palette) =>
     fillWrap: { height: 6, borderRadius: 3, overflow: 'hidden' },
     content: { paddingHorizontal: 24, paddingTop: 22, paddingBottom: 24 },
     title: { color: c.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
+    titleCompact: { fontSize: 24, letterSpacing: -0.5 },
     subtitle: { color: c.muted, fontSize: 16, lineHeight: 22, marginTop: 8, marginBottom: 24 },
     warn: { color: c.warn, fontSize: 14, marginTop: -4 },
     good: { color: c.success, fontSize: 14, fontWeight: '600', marginTop: -4 },

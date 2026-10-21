@@ -171,7 +171,15 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
             <Pressable style={styles.iconBtn} onPress={toggleExpand} hitSlop={6} accessibilityLabel={expanded ? 'Küçült' : 'Büyüt'}>
               <Ionicons name={expanded ? 'contract-outline' : 'expand-outline'} size={19} color="#F4F6FB" />
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={onClose} hitSlop={6} accessibilityLabel="Kapat">
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => {
+                tap();
+                onClose();
+              }}
+              hitSlop={6}
+              accessibilityLabel="Kapat"
+            >
               <Ionicons name="chevron-down" size={22} color="#F4F6FB" />
             </Pressable>
           </View>

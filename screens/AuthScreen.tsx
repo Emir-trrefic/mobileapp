@@ -23,7 +23,7 @@ import {
   passwordOk,
   passwordScore,
 } from '../lib/authRules';
-import { success, warning } from '../lib/haptics';
+import { success, tap, warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
@@ -74,6 +74,12 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
   const checks = passwordChecks(password, mail);
   const score = passwordScore(password);
   const scoreColor = score <= 1 ? c.danger : score === 2 ? c.warn : c.success;
+
+  // Dokunulan her bağlantı / simge hafifçe titreşir.
+  const press = (fn: () => void) => () => {
+    tap();
+    fn();
+  };
 
   function go(next: Mode) {
     setError(null);
@@ -253,7 +259,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
           maxLength={72}
           onSubmitEditing={onSubmit}
         />
-        <Pressable onPress={() => setShowPw((v) => !v)} hitSlop={10} style={styles.eye} accessibilityLabel={showPw ? 'Şifreyi gizle' : 'Şifreyi göster'}>
+        <Pressable onPress={press(() => setShowPw((v) => !v))} hitSlop={10} style={styles.eye} accessibilityLabel={showPw ? 'Şifreyi gizle' : 'Şifreyi göster'}>
           <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color={c.muted} />
         </Pressable>
       </View>
@@ -318,7 +324,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
         autoFocus
         maxLength={8}
       />
-      <Pressable onPress={resend} disabled={resendIn > 0 || busy} hitSlop={8} style={styles.resend}>
+      <Pressable onPress={press(resend)} disabled={resendIn > 0 || busy} hitSlop={8} style={styles.resend}>
         <Text style={[styles.link, resendIn > 0 && { color: c.muted }]}>
           {resendIn > 0 ? `Kodu tekrar gönder (${resendIn} sn)` : 'Kodu tekrar gönder'}
         </Text>
@@ -341,7 +347,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <Pressable
-            onPress={() => (mode === 'verify' ? go('signup') : mode === 'forgot' || mode === 'reset' ? go('login') : onBack())}
+            onPress={press(() => (mode === 'verify' ? go('signup') : mode === 'forgot' || mode === 'reset' ? go('login') : onBack()))}
             hitSlop={14}
             style={styles.back}
             accessibilityLabel="Geri"
@@ -357,7 +363,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
               <>
                 {emailField()}
                 {passwordField('Şifre', false, login)}
-                <Pressable onPress={() => go('forgot')} hitSlop={8} style={styles.forgot}>
+                <Pressable onPress={press(() => go('forgot'))} hitSlop={8} style={styles.forgot}>
                   <Text style={styles.link}>Şifremi unuttum</Text>
                 </Pressable>
               </>
@@ -371,7 +377,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
                 {repeatField(signup)}
                 <Pressable
                   style={styles.consent}
-                  onPress={() => setConsent((v) => !v)}
+                  onPress={press(() => setConsent((v) => !v))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: consent }}
                 >
@@ -419,7 +425,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
             )}
 
             {mode === 'login' || mode === 'signup' ? (
-              <Pressable onPress={() => go(mode === 'signup' ? 'login' : 'signup')} hitSlop={12}>
+              <Pressable onPress={press(() => go(mode === 'signup' ? 'login' : 'signup'))} hitSlop={12}>
                 <Text style={styles.switch}>
                   {mode === 'signup' ? 'Zaten hesabın var mı? ' : 'Hesabın yok mu? '}
                   <Text style={styles.switchStrong}>{mode === 'signup' ? 'Giriş yap' : 'Hesap oluştur'}</Text>
@@ -427,7 +433,7 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
               </Pressable>
             ) : null}
             {mode === 'verify' ? (
-              <Pressable onPress={() => go('login')} hitSlop={12}>
+              <Pressable onPress={press(() => go('login'))} hitSlop={12}>
                 <Text style={styles.switch}>
                   E-postadaki bağlantıya dokundun mu? <Text style={styles.switchStrong}>Giriş yap</Text>
                 </Text>

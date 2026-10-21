@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { impact } from '../lib/haptics';
+import { impact, tap } from '../lib/haptics';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
@@ -90,7 +90,9 @@ export default function AnimatedButton({
       <Pressable
         onPressIn={() => {
           to(0.96);
+          // Her düğmede hafif titreşim: ana düğmede biraz daha belirgin.
           if (isPrimary) impact();
+          else tap();
         }}
         onPressOut={() => to(1)}
         onPress={handlePress}

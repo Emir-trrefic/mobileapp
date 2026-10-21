@@ -294,7 +294,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.15</Text>
+        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.16</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

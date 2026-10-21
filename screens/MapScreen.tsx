@@ -569,11 +569,25 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
       <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
         <View style={styles.topButtons}>
           {isAdmin ? (
-            <Pressable style={styles.roundBtn} onPress={() => setAdding(true)} hitSlop={6}>
+            <Pressable
+              style={styles.roundBtn}
+              onPress={() => {
+                tap();
+                setAdding(true);
+              }}
+              hitSlop={6}
+            >
               <Ionicons name="add" size={22} color={c.text} />
             </Pressable>
           ) : null}
-          <Pressable style={styles.roundBtn} onPress={reload} hitSlop={6}>
+          <Pressable
+            style={styles.roundBtn}
+            onPress={() => {
+              tap();
+              reload();
+            }}
+            hitSlop={6}
+          >
             <Ionicons name="refresh" size={19} color={c.text} />
           </Pressable>
           <Pressable style={styles.roundBtn} onPress={recenter} hitSlop={6}>
