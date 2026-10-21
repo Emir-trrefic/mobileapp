@@ -36,12 +36,13 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
+- 010: hesap güvenliği. profiles.last_name (gizli), tiktok, x_handle, linkedin + sunucu kısıtları (NOT VALID: eski kayıtları bozmaz), avatars kovası 2 MB / JPEG-PNG-WebP, herkese açık listeleme kapatıldı, saatte 20 istek sınırı, indeksler, my_connections hesap linklerini de döndürüyor.
 - 009: ziyaretler. venues_nearby artık my_visits (kullanıcının o kafeye kaç kez check-in yaptığı) döndürüyor; checkins(user_id, venue_id) indeksi. Dosyanın sonunda kafeye 3D profil girme örneği (update ... set layout).
 - 008: kafe 3D profili. venues.layout (jsonb: v, size, style, wall, floor, accent, counter, tables, plants, windows; renkler palet sırası), is_valid_cafe_layout, can_edit_venue (yönetici ya da demo kafenin sahibi), set_venue_layout, venues_nearby artık layout ve can_edit döndürüyor.
 - 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
@@ -131,6 +132,13 @@ Sürüm 0.14:
 - "3D gör" düğmesi kaldırıldı: ortadaki (seçili) karta dokununca ya da seçili pine tekrar dokununca 3D açılır; kaydırma bitince gelen dokunuş 3D açmaz.
 - Kafe ekranındaki "Canlı" yazısı kaldırıldı (kalan süre saat simgesiyle).
 - Snapchat benzeri: daha önce gidilen kafe haritada pin yerine izometrik küçük bir kafe binası (`components/CafeBuilding.tsx`): 1 ziyaret küçük, 2-4 büyük, 5+ iki katlı. Şu an check-in'li olduğun kafenin çatısı yeşil.
+
+Sürüm 0.15 (hesap güvenliği, ayrıntı: docs/GUVENLIK.md):
+- Kayıt/giriş baştan: şifre kuralları + canlı liste, şifre tekrarı, 18 yaş/koşullar onayı, e-posta doğrulama kodu (tekrar gönderme 60 sn), hatalı girişte bekleme, şifremi unuttum (kodla), hesap varlığını ele vermeyen mesajlar. `lib/authRules.ts`, `screens/AuthScreen.tsx`.
+- Oturum şifreli saklanıyor (`lib/secureStorage.ts`, expo-secure-store + aes-js). İlk açılışta eski oturum düşer (tek seferlik yeniden giriş).
+- Profil: gizli soyad, TikTok / X / LinkedIn (kabul edilen kişiye gösterilir), fotoğraf 1080 px + sıkıştırma + rastgele ad + eski fotoğraf silme.
+- Hızlı giriş (test) duruyor.
+- Panelde yapılacaklar: Confirm email AÇ, e-posta şablonlarına {{ .Token }}, şifre en az 8 + kurallar, kendi SMTP'ni bağla (docs/GUVENLIK.md).
 
 ## 8. Önemli notlar
 

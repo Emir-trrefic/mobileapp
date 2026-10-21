@@ -18,7 +18,8 @@ import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
-import { parseContact } from '../lib/contact';
+import { cleanName, nameOk } from '../lib/authRules';
+import { parseContact, parseLinks } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/keyboard';
 import { useInsets } from '../lib/layout';
@@ -29,12 +30,13 @@ import {
   MIN_INTERESTS,
   ageFrom,
   parseBirthYear,
+  removeOldAvatars,
   uploadAvatar,
 } from '../lib/profile';
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
-import { PROFILE_COLUMNS } from '../lib/types';
+import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from '../lib/types';
 import type { Profile } from '../lib/types';
 
 type Props = {
@@ -64,6 +66,12 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const [bio, setBio] = useState(initial?.bio ?? '');
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [insta, setInsta] = useState(initial?.instagram ? `@${initial.instagram}` : '');
+  const [lastName, setLastName] = useState(initial?.last_name ?? '');
+  const [tiktok, setTiktok] = useState(initial?.tiktok ? `@${initial.tiktok}` : '');
+  const [xHandle, setXHandle] = useState(initial?.x_handle ? `@${initial.x_handle}` : '');
+  const [linkedin, setLinkedin] = useState(initial?.linkedin ?? '');
+  const [showLinks, setShowLinks] = useState(Boolean(initial?.tiktok || initial?.x_handle || initial?.linkedin));
+  const lastNameRef = useRef<TextInput>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +81,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const progress = useRef(new Animated.Value(1 / STEPS)).current;
   const slide = useRef(new Animated.Value(1)).current;
 
-  const trimmed = name.trim();
+  const trimmed = cleanName(name);
   const birthYear = parseBirthYear(year);
   const age = ageFrom(birthYear);
 
@@ -91,7 +99,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
 
   const canNext =
     step === 0
-      ? trimmed.length >= 2
+      ? nameOk(name) && (!lastName.trim() || nameOk(lastName, 1))
       : step === 1
         ? birthYear !== null
         : step === 3
@@ -115,8 +123,9 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     Keyboard.dismiss();
     if (birthYear === null) return;
     const contact = parseContact(phone, insta, true);
-    if (contact.error) {
-      setError(contact.error);
+    const links = parseLinks(tiktok, xHandle, linkedin);
+    if (contact.error || links.error) {
+      setError(contact.error ?? links.error);
       warning();
       setDir(-1);
       setStep(4);
@@ -138,9 +147,20 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         avatar_url: avatarUrl,
         phone: contact.phone,
         instagram: contact.instagram,
+        last_name: lastName.trim() ? cleanName(lastName) : null,
+        tiktok: links.tiktok,
+        x_handle: links.x_handle,
+        linkedin: links.linkedin,
       };
-      const { data, error: err } = await supabase.from('profiles').upsert(row).select(PROFILE_COLUMNS).single();
+      let res = await supabase.from('profiles').upsert(row).select(PROFILE_COLUMNS).single();
+      if (res.error?.code === '42703' || res.error?.code === 'PGRST204') {
+        // 010 çalıştırılmadıysa yeni sütunlar yok: onlarsız kaydet.
+        const { last_name: _l, tiktok: _t, x_handle: _x, linkedin: _li, ...base } = row;
+        res = await supabase.from('profiles').upsert(base).select(PROFILE_COLUMNS_BASE).single();
+      }
+      const { data, error: err } = res;
       if (err) throw err;
+      if (photoChanged && avatarUrl) removeOldAvatars(userId, avatarUrl).catch(() => {});
       success();
       onDone(data as Profile);
     } catch (e) {
@@ -156,8 +176,9 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     if (!canNext) return;
     if (step === 4) {
       const contact = parseContact(phone, insta, true);
-      if (contact.error) {
-        setError(contact.error);
+      const links = parseLinks(tiktok, xHandle, linkedin);
+      if (contact.error || links.error) {
+        setError(contact.error ?? links.error);
         warning();
         return;
       }
@@ -243,16 +264,42 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
             <Text style={styles.subtitle}>{titles[step].s}</Text>
 
             {step === 0 && (
-              <AnimatedInput
-                label="Adın"
-                value={name}
-                onChangeText={setName}
-                maxLength={30}
-                autoFocus
-                autoCapitalize="words"
-                returnKeyType="next"
-                onSubmitEditing={next}
-              />
+              <>
+                <AnimatedInput
+                  label="Adın"
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={40}
+                  autoFocus
+                  autoCapitalize="words"
+                  autoComplete="given-name"
+                  textContentType="givenName"
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastNameRef.current?.focus()}
+                />
+                <AnimatedInput
+                  ref={lastNameRef}
+                  label="Soyadın (isteğe bağlı, gizli)"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  maxLength={40}
+                  autoCapitalize="words"
+                  autoComplete="family-name"
+                  textContentType="familyName"
+                  returnKeyType="next"
+                  onSubmitEditing={next}
+                />
+                {name.trim() && !nameOk(name) ? (
+                  <Text style={styles.warn}>Ad sadece harflerden oluşmalı (en az 2 harf).</Text>
+                ) : lastName.trim() && !nameOk(lastName, 1) ? (
+                  <Text style={styles.warn}>Soyad sadece harflerden oluşmalı.</Text>
+                ) : (
+                  <View style={styles.privacyBox}>
+                    <Ionicons name="lock-closed" size={18} color={c.success} />
+                    <Text style={styles.privacyText}>Diğer kullanıcılar sadece adını görür. Soyadın hiçbir zaman gösterilmez.</Text>
+                  </View>
+                )}
+              </>
             )}
 
             {step === 1 && (
@@ -340,6 +387,42 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                   returnKeyType="done"
                   onSubmitEditing={next}
                 />
+                {showLinks ? (
+                  <>
+                    <AnimatedInput
+                      onFocus={revealEnd}
+                      label="TikTok (isteğe bağlı)"
+                      value={tiktok}
+                      onChangeText={setTiktok}
+                      maxLength={60}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <AnimatedInput
+                      onFocus={revealEnd}
+                      label="X (isteğe bağlı)"
+                      value={xHandle}
+                      onChangeText={setXHandle}
+                      maxLength={60}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <AnimatedInput
+                      onFocus={revealEnd}
+                      label="LinkedIn (isteğe bağlı)"
+                      value={linkedin}
+                      onChangeText={setLinkedin}
+                      maxLength={120}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </>
+                ) : (
+                  <Pressable style={styles.moreLinks} onPress={() => setShowLinks(true)} hitSlop={6}>
+                    <Ionicons name="add-circle-outline" size={18} color={c.accentLight} />
+                    <Text style={styles.moreLinksText}>Diğer hesaplarını ekle (TikTok, X, LinkedIn)</Text>
+                  </Pressable>
+                )}
                 <View style={styles.privacyBox}>
                   <Ionicons name="lock-closed" size={18} color={c.success} />
                   <Text style={styles.privacyText}>
@@ -458,6 +541,8 @@ const makeStyles = (c: Palette) =>
     previewAge: { fontWeight: '400' },
     previewSub: { color: c.muted, fontSize: 13, marginTop: 3 },
     error: { color: c.danger, fontSize: 14, marginTop: 12 },
+    moreLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 10 },
+    moreLinksText: { color: c.accentLight, fontSize: 14.5, fontWeight: '700' },
     privacyBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',

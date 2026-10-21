@@ -14,7 +14,7 @@ import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
-import { PROFILE_COLUMNS } from './lib/types';
+import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
 import type { ActiveCheckin, Connection, IncomingRequest, Profile } from './lib/types';
 import WelcomeScreen from './screens/WelcomeScreen';
 import AuthScreen from './screens/AuthScreen';
@@ -136,7 +136,11 @@ function AppShell() {
   const loadState = useCallback(async () => {
     if (!session) return;
     setLoadError(null);
-    const prof = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle();
+    let prof = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle();
+    // 42703: yeni sütunlar yok (010 henüz çalıştırılmamış) → eski sütunlarla oku.
+    if (prof.error?.code === '42703') {
+      prof = await supabase.from('profiles').select(PROFILE_COLUMNS_BASE).eq('id', session.user.id).maybeSingle();
+    }
     if (prof.error) {
       setLoadError(prof.error.message);
       setProfileLoaded(true);

@@ -226,6 +226,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
         >
           <Row label="Fotoğraf" value={profile.avatar_url ? 'Eklendi' : 'Ekle'} placeholder={!profile.avatar_url} onPress={edit} />
           <Row label="Ad" value={profile.display_name} onPress={edit} />
+          <Row label="Soyad (gizli)" value={profile.last_name || 'Ekle'} onPress={edit} />
           <Row label="Yaş" value={age ? String(age) : undefined} onPress={edit} />
           <Row label="Meslek" value={profile.job || 'Ekle'} onPress={edit} />
           <Row label="Hakkında" value={profile.bio ? profile.bio : 'Ekle'} onPress={edit} />
@@ -248,8 +249,10 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
             value={profile.instagram ? `@${profile.instagram}` : 'Ekle'}
             placeholder={!profile.phone && !profile.instagram}
             onPress={edit}
-            last
           />
+          <Row label="TikTok" value={profile.tiktok ? `@${profile.tiktok}` : 'Ekle'} onPress={edit} />
+          <Row label="X" value={profile.x_handle ? `@${profile.x_handle}` : 'Ekle'} onPress={edit} />
+          <Row label="LinkedIn" value={profile.linkedin ?? 'Ekle'} onPress={edit} last />
         </Group>
 
         <Group title="Görünüm">
@@ -291,7 +294,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.14</Text>
+        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.15</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

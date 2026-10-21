@@ -3,7 +3,7 @@ import { Alert, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleShee
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
 import { FadeIn } from '../components/Transition';
-import { formatPhone, instagramUrl, phoneUrl, whatsappUrl } from '../lib/contact';
+import { formatPhone, instagramUrl, linkedinUrl, phoneUrl, tiktokUrl, whatsappUrl, xUrl } from '../lib/contact';
 import { success, tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
@@ -325,7 +325,38 @@ export default function MessagesScreen({ connections, profile, onChanged, onGoPr
                 </Pressable>
               </View>
             ) : null}
-            {!sheet.instagram && !sheet.phone ? <Text style={styles.sub}>Bu kişi iletişim bilgisini kaldırmış.</Text> : null}
+            {(
+              [
+                sheet.tiktok ? { key: 'tt', icon: 'logo-tiktok', label: 'TikTok', value: `@${sheet.tiktok}`, url: tiktokUrl(sheet.tiktok) } : null,
+                sheet.x_handle ? { key: 'x', icon: 'logo-twitter', label: 'X', value: `@${sheet.x_handle}`, url: xUrl(sheet.x_handle) } : null,
+                sheet.linkedin ? { key: 'li', icon: 'logo-linkedin', label: 'LinkedIn', value: sheet.linkedin, url: linkedinUrl(sheet.linkedin) } : null,
+              ].filter(Boolean) as { key: string; icon: 'logo-tiktok' | 'logo-twitter' | 'logo-linkedin'; label: string; value: string; url: string }[]
+            ).map((l) => (
+              <Pressable
+                key={l.key}
+                style={styles.cRow}
+                onPress={() => {
+                  tap();
+                  open(l.url);
+                }}
+              >
+                <View style={styles.cIcon}>
+                  <Ionicons name={l.icon} size={21} color={c.text} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cLabel}>{l.label}</Text>
+                  <Text style={styles.cValue} selectable numberOfLines={1}>
+                    {l.value}
+                  </Text>
+                </View>
+                <View style={[styles.btn, styles.btnPrimary]}>
+                  <Text style={styles.btnPrimaryText}>Aç</Text>
+                </View>
+              </Pressable>
+            ))}
+            {!sheet.instagram && !sheet.phone && !sheet.tiktok && !sheet.x_handle && !sheet.linkedin ? (
+              <Text style={styles.sub}>Bu kişi iletişim bilgisini kaldırmış.</Text>
+            ) : null}
           </View>
         ) : null}
       </Modal>

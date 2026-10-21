@@ -37,6 +37,10 @@ export type Profile = {
   avatar_url: string | null;
   phone: string | null;
   instagram: string | null;
+  last_name?: string | null; // gizli: kimseye gösterilmez (010)
+  tiktok?: string | null;
+  x_handle?: string | null;
+  linkedin?: string | null;
 };
 
 export type Person = {
@@ -83,6 +87,11 @@ export type Connection = {
   responded_at: string | null;
   phone: string | null;
   instagram: string | null;
+  tiktok?: string | null;
+  x_handle?: string | null;
+  linkedin?: string | null;
 };
 
-export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram';
+export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram, last_name, tiktok, x_handle, linkedin';
+// 010 çalıştırılmadıysa yeni sütunlar yoktur; profil yine de okunabilsin diye yedek liste.
+export const PROFILE_COLUMNS_BASE = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram';

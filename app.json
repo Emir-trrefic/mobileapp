@@ -16,7 +16,8 @@
           "locationWhenInUsePermission": "Bulundugun mekani bulmak ve orada olan kisileri gostermek icin konumun kullanilir."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-secure-store"
     ],
     "backgroundColor": "#081028",
     "splash": {

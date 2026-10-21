@@ -15,13 +15,14 @@ import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
-import { parseContact } from '../lib/contact';
+import { cleanName, nameOk } from '../lib/authRules';
+import { parseContact, parseLinks } from '../lib/contact';
 import { success, warning } from '../lib/haptics';
-import { INTERESTS, MAX_INTERESTS, MIN_INTERESTS, ageFrom, uploadAvatar } from '../lib/profile';
+import { INTERESTS, MAX_INTERESTS, MIN_INTERESTS, ageFrom, removeOldAvatars, uploadAvatar } from '../lib/profile';
 import { supabase } from '../lib/supabase';
 import { useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
-import { PROFILE_COLUMNS } from '../lib/types';
+import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from '../lib/types';
 import type { Profile } from '../lib/types';
 
 type Props = {
@@ -37,6 +38,10 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   const [bio, setBio] = useState(profile.bio ?? '');
   const [phone, setPhone] = useState(profile.phone ?? '');
   const [insta, setInsta] = useState(profile.instagram ? `@${profile.instagram}` : '');
+  const [lastName, setLastName] = useState(profile.last_name ?? '');
+  const [tiktok, setTiktok] = useState(profile.tiktok ? `@${profile.tiktok}` : '');
+  const [xHandle, setXHandle] = useState(profile.x_handle ? `@${profile.x_handle}` : '');
+  const [linkedin, setLinkedin] = useState(profile.linkedin ?? '');
   const [interests, setInterests] = useState<string[]>(profile.interests);
   const [photoUri, setPhotoUri] = useState<string | null>(profile.avatar_url);
   const [photoMime, setPhotoMime] = useState<string | null>(null);
@@ -62,8 +67,12 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
 
   async function save() {
     Keyboard.dismiss();
-    if (name.trim().length < 2) {
-      setError('İsim en az 2 karakter olsun.');
+    if (!nameOk(name)) {
+      setError('Ad sadece harflerden oluşmalı (en az 2 harf).');
+      return;
+    }
+    if (lastName.trim() && !nameOk(lastName, 1)) {
+      setError('Soyad sadece harflerden oluşmalı.');
       return;
     }
     if (interests.length < MIN_INTERESTS) {
@@ -71,8 +80,9 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
       return;
     }
     const contact = parseContact(phone, insta, true);
-    if (contact.error) {
-      setError(contact.error);
+    const links = parseLinks(tiktok, xHandle, linkedin);
+    if (contact.error || links.error) {
+      setError(contact.error ?? links.error);
       return;
     }
     setError(null);
@@ -81,21 +91,29 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
       let avatarUrl = profile.avatar_url;
       if (photoUri && photoChanged) avatarUrl = await uploadAvatar(profile.id, photoUri, photoMime);
 
-      const { data, error: err } = await supabase
-        .from('profiles')
-        .update({
-          display_name: name.trim(),
-          job: job.trim() || null,
-          bio: bio.trim() || null,
-          interests,
-          avatar_url: avatarUrl,
-          phone: contact.phone,
-          instagram: contact.instagram,
-        })
-        .eq('id', profile.id)
-        .select(PROFILE_COLUMNS)
-        .single();
+      const base = {
+        display_name: cleanName(name),
+        job: job.trim() || null,
+        bio: bio.trim() || null,
+        interests,
+        avatar_url: avatarUrl,
+        phone: contact.phone,
+        instagram: contact.instagram,
+      };
+      const extra = {
+        last_name: lastName.trim() ? cleanName(lastName) : null,
+        tiktok: links.tiktok,
+        x_handle: links.x_handle,
+        linkedin: links.linkedin,
+      };
+      let res = await supabase.from('profiles').update({ ...base, ...extra }).eq('id', profile.id).select(PROFILE_COLUMNS).single();
+      if (res.error?.code === '42703' || res.error?.code === 'PGRST204') {
+        // 010 çalıştırılmadıysa yeni sütunlar yok.
+        res = await supabase.from('profiles').update(base).eq('id', profile.id).select(PROFILE_COLUMNS_BASE).single();
+      }
+      const { data, error: err } = res;
       if (err) throw err;
+      if (photoChanged && avatarUrl) removeOldAvatars(profile.id, avatarUrl).catch(() => {});
       success();
       onSaved(data as Profile);
       onClose();
@@ -141,10 +159,17 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
           label="Adın"
           value={name}
           onChangeText={setName}
-          maxLength={30}
+          maxLength={40}
           autoCapitalize="words"
           returnKeyType="next"
           onSubmitEditing={() => jobRef.current?.focus()}
+        />
+        <AnimatedInput
+          label="Soyadın (gizli, kimse görmez)"
+          value={lastName}
+          onChangeText={setLastName}
+          maxLength={40}
+          autoCapitalize="words"
         />
 
         <View style={styles.ageRow}>
@@ -184,6 +209,9 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
           autoCapitalize="none"
           autoCorrect={false}
         />
+        <AnimatedInput label="TikTok" value={tiktok} onChangeText={setTiktok} maxLength={60} autoCapitalize="none" autoCorrect={false} />
+        <AnimatedInput label="X" value={xHandle} onChangeText={setXHandle} maxLength={60} autoCapitalize="none" autoCorrect={false} />
+        <AnimatedInput label="LinkedIn" value={linkedin} onChangeText={setLinkedin} maxLength={120} autoCapitalize="none" autoCorrect={false} />
 
         <Text style={styles.section}>
           İlgi alanları · {interests.length}/{MAX_INTERESTS}
