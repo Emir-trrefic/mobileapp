@@ -23,6 +23,7 @@ import { formatPhone } from '../lib/contact';
 import { tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
+import { forgetMyKeys } from '../lib/e2ee';
 import { supabase } from '../lib/supabase';
 import { BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
 import type { Palette, ThemePref } from '../lib/theme';
@@ -171,6 +172,8 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
       if (paths.length > 0) await supabase.storage.from('avatars').remove(paths);
       const { error } = await supabase.rpc('delete_account');
       if (error) throw error;
+      // Bu cihazdaki şifreli sohbet anahtarı da silinir.
+      await forgetMyKeys(profile.id);
       setDeleting(false);
       try {
         await onSignOut();
@@ -294,7 +297,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.16</Text>
+        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.17</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

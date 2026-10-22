@@ -20,6 +20,18 @@
 - Tanışma isteği: saatte en fazla 20.
 - Ölçek için indeksler (check-in, istekler).
 
+## Uçtan uca şifreli sohbet (011)
+
+- Şifreleme: NaCl box (X25519 + XSalsa20-Poly1305, tweetnacl). Rastgele sayılar cihazın güvenli üretecinden (expo-crypto).
+- Gizli anahtar sadece telefonda: iPhone Anahtar Zinciri, `WHEN_UNLOCKED_THIS_DEVICE_ONLY` (yedeğe ve başka cihaza geçmez). Sunucuya hiç gönderilmez.
+- Sunucuda: açık anahtar (`user_keys`), mesajın şifreli hali + nonce + hangi anahtarlarla şifrelendiği (`chat_messages`). Veritabanına erişen biri (biz dahil) mesaj içeriğini okuyamaz.
+- Sunucunun gördüğü üst veri: kim kiminle, ne zaman, kaç mesaj. Bu gizlenmez.
+- Sohbet sadece kabul edilmiş isteğin iki tarafı arasında; engellenince gönderim kapanır. Dakikada 30 mesaj sınırı.
+- Eski anahtarla gönderim sunucuda reddedilir (karşı taraf telefon değiştirdiyse uygulama yeni anahtarı alıp tekrar dener).
+- Güvenlik kodu: sohbette kişi bilgisinde iki açık anahtarın özeti. Yan yanayken iki telefonda aynıysa arada kimse yok demektir.
+- Bilinen sınır: anahtar cihaza bağlı olduğu için yeni telefonda eski mesajlar açılamaz (yedekleme yok). İleride: çoklu cihaz ve anahtar değişince uyarı.
+- İstekle gönderilen not da aynı şekilde şifreli.
+
 ## Kapasite (1000 kullanıcı)
 
 - Fotoğraf: 1000 × ~200 KB ≈ 200 MB (ücretsiz plan 1 GB depolama).

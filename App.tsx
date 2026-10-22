@@ -10,18 +10,21 @@ import type { TabKey } from './components/TabBar';
 import SplashIntro from './components/SplashIntro';
 import Warmup3D from './components/Warmup3D';
 import { Pane, Screen } from './components/Transition';
+import { ensureMyKeys, publishMyKey } from './lib/e2ee';
+import type { MyKeys } from './lib/e2ee';
 import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
-import type { ActiveCheckin, Connection, IncomingRequest, Profile } from './lib/types';
+import type { ActiveCheckin, ChatHead, Connection, IncomingRequest, Profile } from './lib/types';
 import WelcomeScreen from './screens/WelcomeScreen';
 import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import MapScreen from './screens/MapScreen';
 import VenueScreen from './screens/VenueScreen';
 import MessagesScreen from './screens/MessagesScreen';
+import ChatScreen from './screens/ChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 type Entry = 'welcome' | 'auth';
@@ -87,6 +90,10 @@ function AppShell() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveCheckin | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [heads, setHeads] = useState<ChatHead[]>([]);
+  const [keys, setKeys] = useState<MyKeys | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null); // açık sohbetin istek kimliği
+  const [chatSeed, setChatSeed] = useState<Connection | null>(null); // listede henüz yoksa (yeni kabul)
   const [venueOpen, setVenueOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>('map');
   const [entry, setEntry] = useState<Entry>('welcome');
@@ -160,6 +167,9 @@ function AppShell() {
       setLoadError(null);
       setActive(null);
       setConnections([]);
+      setHeads([]);
+      setKeys(null);
+      setChatId(null);
       setVenueOpen(false);
       setTab('map');
       setEntry('welcome');
@@ -167,9 +177,27 @@ function AppShell() {
   }, [session, loadState]);
 
   const loadConnections = useCallback(async () => {
-    const { data } = await supabase.rpc('my_connections');
-    setConnections((data ?? []) as Connection[]);
+    const [conns, chats] = await Promise.all([supabase.rpc('my_connections'), supabase.rpc('my_chat_heads')]);
+    if (!conns.error) setConnections((conns.data ?? []) as Connection[]);
+    if (!chats.error) setHeads((chats.data ?? []) as ChatHead[]);
   }, []);
+
+  // Uçtan uca şifreleme anahtarları: bu cihazda yoksa üretilir, açık anahtar sunucuya yazılır.
+  const userId = session?.user.id ?? null;
+  const hasProfile = Boolean(profile?.birth_year);
+  useEffect(() => {
+    if (!userId || !hasProfile) return;
+    let alive = true;
+    ensureMyKeys(userId)
+      .then((k) => {
+        if (alive) setKeys(k);
+        return publishMyKey(userId);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [userId, hasProfile]);
 
   // Gelen / giden istekler (Mesajlar sekmesi ve rozeti) 8 sn'de bir kontrol edilir.
   useEffect(() => {
@@ -209,6 +237,13 @@ function AppShell() {
         : [],
     [pendingIncoming, active],
   );
+
+  const unread = useMemo(() => heads.reduce((n, h) => n + (h.unread || 0), 0), [heads]);
+  const chatConn = chatId ? connections.find((x) => x.request_id === chatId) ?? (chatSeed?.request_id === chatId ? chatSeed : null) : null;
+  const openChat = useCallback((x: Connection) => {
+    setChatSeed(x);
+    setChatId(x.request_id);
+  }, []);
 
   // Check-in kalmadıysa kafe ekranı kapanır.
   useEffect(() => {
@@ -332,9 +367,10 @@ function AppShell() {
         <Pane visible={tab === 'messages'} from={tabFrom}>
           <MessagesScreen
             connections={connections}
-            profile={profile}
+            heads={heads}
+            keys={keys}
             onChanged={loadConnections}
-            onGoProfile={() => setTab('profile')}
+            onOpenChat={openChat}
           />
         </Pane>
 
@@ -347,14 +383,33 @@ function AppShell() {
           />
         </Pane>
 
-        {/* Check-in yapılan kafede şu an bulunan kişiler (sekme çubuğunun üstünde açılır) */}
-        {venueOpen && active ? (
+        {/* Şifreli sohbet: her şeyin üstünde tam ekran */}
+        {chatConn ? (
+          <Pane visible from={1}>
+            <ChatScreen
+              key={chatConn.request_id}
+              conn={chatConn}
+              userId={session.user.id}
+              keys={keys}
+              onClose={() => {
+                setChatId(null);
+                loadConnections();
+              }}
+              onRead={loadConnections}
+              onBlocked={() => {
+                setChatId(null);
+                loadConnections();
+              }}
+            />
+          </Pane>
+        ) : venueOpen && active ? (
           <Pane visible from={1}>
             <VenueScreen
               active={active}
               userId={session.user.id}
               myInterests={profile.interests}
               incoming={incoming}
+              keys={keys}
               onIncomingChanged={loadConnections}
               onClose={() => setVenueOpen(false)}
               onLeft={() => {
@@ -365,7 +420,7 @@ function AppShell() {
             />
           </Pane>
         ) : immersive && tab === 'map' ? null : (
-          <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length} live={Boolean(active)} />
+          <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length + unread} live={Boolean(active)} />
         )}
       </View>
     );

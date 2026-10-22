@@ -115,8 +115,8 @@ export function requestNote(status: RequestStatus | null, dir: 'sent' | 'receive
   }
   if (status === 'accepted') {
     return dir === 'received'
-      ? 'İsteği kabul ettin. İletişim bilgilerin bu kişiyle paylaşıldı.'
-      : 'İsteğin kabul edildi. İletişim bilgileri Mesajlar sekmesinde.';
+      ? 'İsteği kabul ettin. Mesajlar sekmesinden şifreli sohbet edebilirsiniz.'
+      : 'İsteğin kabul edildi. Mesajlar sekmesinden şifreli sohbet edebilirsiniz.';
   }
   return dir === 'received' ? 'Bu isteği reddettin.' : 'İsteğin kabul edilmedi.';
 }

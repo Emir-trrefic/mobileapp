@@ -15,7 +15,10 @@ import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import PersonCard from '../components/PersonCard';
 import PersonSheet from '../components/PersonSheet';
+import RequestSheet from '../components/RequestSheet';
 import { FadeIn } from '../components/Transition';
+import { peerKey, seal } from '../lib/e2ee';
+import type { MyKeys } from '../lib/e2ee';
 import { success, tap, warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
@@ -30,6 +33,7 @@ type Props = {
   userId: string;
   myInterests: string[];
   incoming: IncomingRequest[];
+  keys: MyKeys | null;
   onIncomingChanged: () => void;
   onClose: () => void;
   onLeft: () => void;
@@ -39,7 +43,15 @@ const POLL_MS = 10_000;
 const PAD = 16;
 const GAP = 12;
 
-export default function VenueScreen({ active, userId, myInterests, incoming, onIncomingChanged, onClose, onLeft }: Props) {
+function requestError(msg: string): string {
+  if (msg.includes('zaten istek')) return 'Bu kişiye bu kafede zaten istek gönderdin.';
+  if (msg.includes('aktif olmalisiniz')) return 'İkiniz de şu an bu kafede olmalısınız.';
+  if (msg.includes('cok fazla istek')) return 'Saatte en fazla 20 istek gönderebilirsin, biraz sonra tekrar dene.';
+  if (msg.includes('gonderilemez')) return 'Bu kişiye istek gönderilemiyor.';
+  return msg;
+}
+
+export default function VenueScreen({ active, userId, myInterests, incoming, keys, onIncomingChanged, onClose, onLeft }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -50,6 +62,8 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [composeFor, setComposeFor] = useState<Person | null>(null);
+  const [sending, setSending] = useState(false);
   const [now, setNow] = useState(Date.now());
   const leaving = useRef(false);
 
@@ -71,6 +85,8 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
 
   const refresh = useCallback(async () => {
     if (!active) return;
+    // Demo kafede örnek kişileri getirir ve isteklerini yanıtlatır (demo değilse sunucu hiçbir şey yapmaz).
+    await supabase.rpc('demo_tick', { p_venue: active.venue_id });
     const p = await supabase.rpc('venue_people', { p_venue: active.venue_id });
     if (!p.error) setPeople((p.data ?? []) as Person[]);
     setLoaded(true);
@@ -99,16 +115,42 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     setRefreshing(false);
   }
 
-  async function sendRequest(p: Person) {
-    if (!active) return;
-    const { error } = await supabase.rpc('send_meet_request', { p_to: p.user_id, p_venue: active.venue_id });
+  // Not varsa alıcının açık anahtarıyla telefonda şifrelenir; sunucuya sadece şifreli hali gider.
+  async function sendRequest(p: Person, note: string) {
+    if (!active || sending) return;
+    const venueId = active.venue_id;
+    setSending(true);
+    let sealed = null;
+    if (note) {
+      const theirs = keys ? await peerKey(p.user_id) : null;
+      sealed = keys && theirs ? seal(note, keys, theirs) : null;
+      if (!sealed) {
+        setSending(false);
+        warning();
+        Alert.alert('Not şifrelenemedi', 'Bu kişi henüz şifreli mesajlaşmayı açmamış. Notu silip isteği notsuz gönderebilirsin.');
+        return;
+      }
+    }
+    const { error } = await supabase.rpc('send_meet_request', {
+      p_to: p.user_id,
+      p_venue: venueId,
+      ...(sealed
+        ? { p_nonce: sealed.nonce, p_box: sealed.box, p_sender_key: sealed.sender_key, p_recipient_key: sealed.recipient_key }
+        : {}),
+    });
+    setSending(false);
     if (error) {
       warning();
-      Alert.alert('İstek gönderilemedi', error.message);
-    } else {
-      success();
-      refresh();
+      Alert.alert('İstek gönderilemedi', requestError(error.message));
+      return;
     }
+    success();
+    setComposeFor(null);
+    refresh();
+    // Örnek kişiler birkaç saniye içinde yanıt verir.
+    setTimeout(() => {
+      if (!leaving.current) refresh();
+    }, 3600);
   }
 
   async function respond(r: IncomingRequest, accept: boolean) {
@@ -119,7 +161,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
     }
     if (accept) {
       success();
-      Alert.alert('Kabul ettin', `${r.display_name} artık iletişim bilgilerini görebilir.`);
+      Alert.alert('Kabul ettin', `${r.display_name} ile şifreli sohbetiniz Mesajlar sekmesinde açıldı.`);
     } else {
       tap();
     }
@@ -268,7 +310,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
               tap();
               setSelectedId(item.user_id);
             }}
-            onMeet={() => sendRequest(item)}
+            onMeet={() => setComposeFor(item)}
           />
         )}
       />
@@ -277,8 +319,20 @@ export default function VenueScreen({ active, userId, myInterests, incoming, onI
         person={selected}
         myInterests={myInterests}
         onClose={() => setSelectedId(null)}
-        onMeet={sendRequest}
+        onMeet={(p) => {
+          // Önce profil sayfası kapanır, sonra istek sayfası açılır (iki sayfa üst üste açılamaz).
+          setSelectedId(null);
+          setTimeout(() => setComposeFor(p), 450);
+        }}
         onMore={more}
+      />
+
+      <RequestSheet
+        person={composeFor}
+        shared={composeFor ? composeFor.interests.filter((i) => myInterests.includes(i)) : []}
+        busy={sending}
+        onClose={() => setComposeFor(null)}
+        onSend={sendRequest}
       />
     </View>
   );

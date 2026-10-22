@@ -90,7 +90,41 @@ export type Connection = {
   tiktok?: string | null;
   x_handle?: string | null;
   linkedin?: string | null;
+  // istekle gönderilen not (uçtan uca şifreli, 011)
+  note_nonce?: string | null;
+  note_box?: string | null;
+  note_sender_key?: string | null;
+  note_recipient_key?: string | null;
 };
+
+// Sohbet listesi için son (şifreli) mesaj ve okunmamış sayısı (011, my_chat_heads).
+export type ChatHead = {
+  request_id: string;
+  sender: string;
+  sender_key: string;
+  recipient_key: string;
+  nonce: string;
+  box: string;
+  last_at: string;
+  unread: number;
+};
+
+// chat_messages satırı: içerik sadece şifreli (lib/e2ee.ts open ile açılır).
+export type ChatRow = {
+  id: string;
+  request_id: string;
+  sender: string;
+  recipient: string;
+  sender_key: string;
+  recipient_key: string;
+  nonce: string;
+  box: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+// Örnek (test) kişiler 011'de "Örnek profil · ..." mesleğiyle eklenir.
+export const isDemoPerson = (job: string | null | undefined) => Boolean(job && job.startsWith('Örnek profil'));
 
 export const PROFILE_COLUMNS = 'id, display_name, birth_year, bio, job, interests, avatar_url, phone, instagram, last_name, tiktok, x_handle, linkedin';
 // 010 çalıştırılmadıysa yeni sütunlar yoktur; profil yine de okunabilsin diye yedek liste.

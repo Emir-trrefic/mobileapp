@@ -36,13 +36,14 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
 - 004: GPS sertleştirme. check_in(p_venue, p_lat, p_lng, p_accuracy), ping_location (dakikada bir; yarıçapın 2.5 katı uzaklaşınca otomatik check-out), 30 dk `last_seen_at` canlılık kuralı, ışınlanma kontrolü (~42 m/s), venues_nearby/venue_people/send_meet_request güncel.
 - 005: delete_account() (auth.users'tan siler, diğer tablolar cascade).
 - 010: hesap güvenliği. profiles.last_name (gizli), tiktok, x_handle, linkedin + sunucu kısıtları (NOT VALID: eski kayıtları bozmaz), avatars kovası 2 MB / JPEG-PNG-WebP, herkese açık listeleme kapatıldı, saatte 20 istek sınırı, indeksler, my_connections hesap linklerini de döndürüyor.
+- 011: uçtan uca şifreli sohbet. user_keys (sadece açık anahtar), chat_messages (sadece şifreli metin, Realtime yayınına eklenir), send_chat_message / mark_chat_read / my_chat_heads, isteğe şifreli not, cancel_meet_request, kabul için iletişim bilgisi şartı kaldırıldı, 6 örnek kişi + demo_tick (demo kafede istekleri yanıtlar).
 - 009: ziyaretler. venues_nearby artık my_visits (kullanıcının o kafeye kaç kez check-in yaptığı) döndürüyor; checkins(user_id, venue_id) indeksi. Dosyanın sonunda kafeye 3D profil girme örneği (update ... set layout).
 - 008: kafe 3D profili. venues.layout (jsonb: v, size, style, wall, floor, accent, counter, tables, plants, windows; renkler palet sırası), is_valid_cafe_layout, can_edit_venue (yönetici ya da demo kafenin sahibi), set_venue_layout, venues_nearby artık layout ve can_edit döndürüyor.
 - 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
@@ -144,6 +145,13 @@ Sürüm 0.16:
 - Klavye: kurulum adımlarında (iletişim, ilgi alanları, hakkında) dokunulan kutu klavyenin üstüne kaydırılır; klavye açıkken başlık küçülür, alt yazı gizlenir.
 - Titreşim: tüm düğmelerde dokunuşta hafif titreşim (ana düğmede biraz daha belirgin), giriş ekranı bağlantıları, hızlı giriş, harita ve 3D kapat düğmeleri dahil (`lib/haptics.ts`).
 - Not: iPhone klavye tuşlarının tık titreşimi sistem ayarıdır (Ayarlar > Ses ve Dokunuş > Klavye Geri Bildirimi > Dokunuş); uygulama bunu açamaz.
+
+Sürüm 0.17 (şifreli sohbet + tanışma isteği):
+- Uçtan uca şifreli sohbet (`lib/e2ee.ts`, tweetnacl): her cihaz X25519 anahtar çifti üretir, gizli anahtar Anahtar Zinciri'nde (bu cihaza özel), sunucuda sadece açık anahtar ve şifreli metin var. Kabul edilen her istek bir sohbet (`screens/ChatScreen.tsx`): gerçek zamanlı + 6 sn yedek kontrol, okundu bilgisi, güvenlik kodu, engelle. Yeni cihaz = yeni anahtar: eski mesajlar o cihazda "başka cihaz için şifrelenmiş" görünür.
+- Mesajlar sekmesi baştan: gelen istekler (şifreli notla), sohbetler (son mesaj önizleme, okunmamış sayısı), gönderdiğin istekler (geri çek). Sekme rozeti = bekleyen istek + okunmamış mesaj.
+- Tanışma isteği sayfası (`components/RequestSheet.tsx`): kısa not (140, şifreli) + hazır öneriler, ortak ilgi alanına göre öneri. Kabul için telefon/Instagram şartı kalktı.
+- Örnek kişiler: demo kafede check-in yapınca 6 örnek kişi (Deniz, Ece, Mert, Zeynep, Arda, Selin) görünür; isteğini ~3 sn'de kabul eder, Ece sana istek gönderir. Örnek kişiler mesaj alır ama yanıt vermez. Gerçek şifreli yazışmayı denemek için iki cihazda iki hesap gerekir.
+- Yayın öncesi: `revoke execute on function public.demo_tick(uuid) from authenticated;` ve örnek hesapları sil.
 
 ## 8. Önemli notlar
 
