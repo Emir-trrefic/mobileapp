@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { formatPhone, instagramUrl, linkedinUrl, phoneUrl, tiktokUrl, whatsappUrl, xUrl } from '../lib/contact';
 import { tap } from '../lib/haptics';
+import { copySensitive } from '../lib/security/clipboard';
 import { venueLabel } from '../lib/requests';
 import { useInsets } from '../lib/layout';
 import { useColors, useStyles } from '../lib/theme';
@@ -62,7 +63,7 @@ export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) 
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Telefon</Text>
-                <Text style={styles.value} selectable>
+                <Text style={styles.value} onLongPress={() => copySensitive(conn.phone!)}>
                   {formatPhone(conn.phone)}
                 </Text>
               </View>
@@ -102,7 +103,7 @@ export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) 
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>{l.label}</Text>
-                <Text style={styles.value} selectable numberOfLines={1}>
+                <Text style={styles.value} numberOfLines={1}>
                   {l.value}
                 </Text>
               </View>
@@ -129,7 +130,7 @@ export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) 
             </Text>
             {safety ? (
               <>
-                <Text style={styles.code} selectable>
+                <Text style={styles.code}>
                   {safety}
                 </Text>
                 <Text style={styles.safetyText}>

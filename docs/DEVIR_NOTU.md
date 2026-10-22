@@ -175,3 +175,9 @@ Sürüm 0.19 (tanışma isteği ve bildirimler):
 - Kafe ekranı: kişi kartında "Tanış" düğmesi, üstte "Seninle tanışmak isteyenler" kartları, istek gönderilince alttan onay şeridi.
 - Uzak bildirim kurulumu: docs/BILDIRIM.md (EAS proje kimliği + notify fonksiyonu + webhook).
 
+Sürüm 0.20 (cihaz ve ağ güvenliği, ayrıntı docs/GUVENLIK.md > Cihaz ve ağ sertleştirme):
+- Sohbette ekran görüntüsü/kaydı engeli ve uyarısı, mesaj metni seçilemez; uzun basınca kopyala → 1 dk sonra pano temizlenir.
+- `components/SecurityLayer.tsx`: arka plana geçince lacivert perde + iOS uygulama değiştirici bulanıklığı; Face ID / parmak izi uygulama kilidi (Profil > Güvenlik, 30 sn sonra yeniden kilit).
+- Profil > Güvenlik: diğer cihazlardaki oturumları kapat, cihaz güvenliği durumu.
+- Sertifika sabitleme (Supabase zinciri + yedek kökler) ve root/jailbreak tespiti; ikisi de Expo Go'da kapalı, kendi derlemede açılır. Android R8 açıldı.
+

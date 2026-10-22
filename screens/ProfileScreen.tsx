@@ -25,6 +25,8 @@ import { tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { forgetMyKeys } from '../lib/e2ee';
+import { lockAvailable, lockEnabled, lockMethodName, setLockEnabled } from '../lib/security/appLock';
+import { deviceRisk } from '../lib/security/hardening';
 import { friendly } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { APP_VERSION, BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
@@ -161,6 +163,47 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut, phon
     interests.length === 0 ? 'Ekle' : interests.slice(0, 2).join(', ') + (interests.length > 2 ? ` +${interests.length - 2}` : '');
   const edit = () => setEditing(true);
 
+  // ---------------------------------------------------------------- güvenlik
+  const [lockSupported, setLockSupported] = useState(false);
+  const [lockOn, setLockOn] = useState(false);
+  const [lockName, setLockName] = useState('Face ID');
+  const [risk] = useState(deviceRisk);
+  useEffect(() => {
+    lockAvailable().then(setLockSupported);
+    lockEnabled().then(setLockOn);
+    lockMethodName().then(setLockName);
+  }, []);
+
+  async function toggleLock() {
+    tap();
+    if (await setLockEnabled(!lockOn)) setLockOn(!lockOn);
+  }
+
+  function signOutOthers() {
+    tap();
+    Alert.alert('Diğer oturumlar kapatılsın mı?', 'Bu telefon dışında hesabının açık olduğu her yerden çıkış yapılır.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Kapat',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.auth.signOut({ scope: 'others' });
+          if (error) {
+            warning();
+            Alert.alert('Kapatılamadı', friendly(error));
+          } else Alert.alert('Tamam', 'Diğer cihazlardaki oturumlar kapatıldı.');
+        },
+      },
+    ]);
+  }
+
+  const securityFooter =
+    risk.rooted || risk.hooked
+      ? 'Bu cihazda root/jailbreak ya da değiştirilmiş yazılım belirtisi var. Hesabının güvenliği için önerilmez.'
+      : lockOn
+        ? `Uygulama açılırken ve 30 sn'den uzun aradan sonra ${lockName} istenir.`
+        : 'Telefonunu başkası kullanıyorsa uygulama kilidini açabilirsin.';
+
   // KVKK md. 11: hesapla ilgili tüm veriler tek dosyada (mesaj içerikleri şifreli olduğu için hariç).
   async function exportData() {
     tap();
@@ -288,20 +331,27 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut, phon
           <Row label="Görünür kalma süresi" value="3 saat" last />
         </Group>
 
-        {phoneVerified !== null ? (
-          <Group
-            title="Güvenlik"
-            footer={phoneVerified ? 'Numaran doğrulandı. Kimseye gösterilmez.' : 'Numaranı doğrulamak hesabını sahte hesaplardan ayırır.'}
-          >
+        <Group title="Güvenlik" footer={securityFooter}>
+          {phoneVerified !== null ? (
             <Row
               label="Telefon doğrulama"
               value={phoneVerified ? 'Doğrulandı' : 'Doğrula'}
               tone={phoneVerified ? undefined : 'accent'}
               onPress={phoneVerified ? undefined : onVerifyPhone}
-              last
             />
-          </Group>
-        ) : null}
+          ) : null}
+          {lockSupported ? (
+            <Row label={`${lockName} ile kilitle`} value={lockOn ? 'Açık' : 'Kapalı'} onPress={toggleLock} />
+          ) : null}
+          {risk.available ? (
+            <Row
+              label="Cihaz güvenliği"
+              value={risk.rooted || risk.hooked ? 'Risk var' : 'Sorun yok'}
+              tone={risk.rooted || risk.hooked ? 'danger' : undefined}
+            />
+          ) : null}
+          <Row label="Diğer cihazlardaki oturumları kapat" onPress={signOutOthers} last />
+        </Group>
 
         <Group title="Verilerim" footer="KVKK kapsamındaki haklarını buradan kullanabilirsin. Diğer talepler için Aydınlatma Metni'ndeki adrese yaz.">
           <Row label="Verilerimin kopyasını al" onPress={exportData} />

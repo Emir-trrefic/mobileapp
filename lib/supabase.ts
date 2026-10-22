@@ -1,11 +1,15 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { secureSessionStorage } from './secureStorage';
+import { initPinning } from './security/hardening';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const supabaseConfigured = Boolean(url && anonKey);
+
+// Supabase'e giden istekler sertifika sabitlemeyle korunur (uygulamanın kendi derlemesinde; Expo Go'da kapalı).
+if (url) initPinning(url);
 
 export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'missing', {
   auth: {

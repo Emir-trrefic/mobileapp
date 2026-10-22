@@ -23,6 +23,21 @@
         {
           "color": "#050A18"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Uygulama kilidini açmak için Face ID kullanılır."
+        }
       ]
     ],
     "backgroundColor": "#050A18",

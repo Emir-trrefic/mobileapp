@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { usePreventScreenCapture, useScreenshotListener } from 'expo-screen-capture';
 import Avatar from '../components/Avatar';
 import ContactSheet from '../components/ContactSheet';
 import { FadeIn } from '../components/Transition';
 import { MAX_MESSAGE, open, peerKey, safetyCode, seal } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
 import { friendly } from '../lib/errors';
+import { copySensitive } from '../lib/security/clipboard';
 import { venueLabel } from '../lib/requests';
 import { impact, tap, warning } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/keyboard';
@@ -76,6 +78,33 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
   const [theirKey, setTheirKey] = useState<string | null | undefined>(undefined); // undefined: yükleniyor
   const [text, setText] = useState('');
   const [info, setInfo] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sohbet açıkken ekran görüntüsü ve ekran kaydı engellenir (Android: hiç alınamaz, iOS 13+: boş çıkar).
+  usePreventScreenCapture('chat');
+  useScreenshotListener(() => flash('Bu sohbette ekran görüntüsü alınamaz.'));
+
+  function flash(text: string) {
+    setNotice(text);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 2600);
+  }
+
+  // Mesaj metni seçilemez; uzun basınca kopyalanır ve 1 dk sonra panodan silinir.
+  function messageMenu(text: string) {
+    tap();
+    Alert.alert('Mesaj', undefined, [
+      {
+        text: 'Kopyala',
+        onPress: async () => {
+          await copySensitive(text);
+          flash('Kopyalandı. 1 dakika sonra panodan silinecek.');
+        },
+      },
+      { text: 'Vazgeç', style: 'cancel' },
+    ]);
+  }
   const theirKeyRef = useRef<string | null | undefined>(undefined);
   theirKeyRef.current = theirKey;
   const demo = isDemoPerson(conn.job);
@@ -319,7 +348,11 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
                 <View style={[styles.bubbleRow, item.mine ? styles.right : styles.left, !groupEnd && { marginBottom: 2 }]}>
                   <View style={[styles.bubble, item.mine ? styles.mine : styles.theirs, item.sending && { opacity: 0.6 }]}>
                     {item.text !== null ? (
-                      <Text style={[styles.msg, item.mine && styles.msgMine]} selectable>
+                      <Text
+                        style={[styles.msg, item.mine && styles.msgMine]}
+                        onLongPress={() => messageMenu(item.text as string)}
+                        suppressHighlighting
+                      >
                         {item.text}
                       </Text>
                     ) : (
@@ -345,6 +378,13 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
           );
         }}
       />
+
+      {notice ? (
+        <View style={styles.flash} pointerEvents="none">
+          <Ionicons name="shield-checkmark" size={14} color={c.text} />
+          <Text style={styles.flashText}>{notice}</Text>
+        </View>
+      ) : null}
 
       {theirKey === null ? (
         <View style={styles.notice}>
@@ -436,6 +476,18 @@ const makeStyles = (c: Palette) =>
     metaRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 2 },
     time: { color: c.muted, fontSize: 10.5 },
     timeMine: { color: 'rgba(255,255,255,0.7)' },
+    flash: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      alignSelf: 'center',
+      backgroundColor: c.card2,
+      borderRadius: 14,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      marginBottom: 8,
+    },
+    flashText: { color: c.text, fontSize: 12.5, fontWeight: '600' },
     notice: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.card2 },
     noticeText: { color: c.muted, fontSize: 12.5, lineHeight: 18, textAlign: 'center' },
     inputBar: {

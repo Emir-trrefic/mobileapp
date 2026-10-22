@@ -60,3 +60,33 @@
 ## SMS doğrulama (sonraki adım)
 
 Telefon doğrulaması için Supabase'e bir SMS sağlayıcısı (Twilio, MessageBird, Vonage) bağlanmalı (ücretli). Bağlanınca uygulamaya "telefonunu doğrula" adımı eklenir (`supabase.auth.updateUser({ phone })` + 6 haneli SMS kodu).
+
+## Cihaz ve ağ sertleştirme (0.20)
+
+| Önlem | Nerede | Expo Go | Kendi derleme |
+|---|---|---|---|
+| Sohbette ekran görüntüsü / kayıt engeli | `screens/ChatScreen.tsx` (expo-screen-capture) | Çalışır | Çalışır |
+| Uygulama değiştiricide içerik gizleme | `components/SecurityLayer.tsx` (iOS sistem bulanıklığı + lacivert perde) | Çalışır | Çalışır |
+| Kopyalanan mesajın 1 dk sonra panodan silinmesi, mesaj metni seçilemez | `lib/security/clipboard.ts` | Çalışır | Çalışır |
+| Face ID / parmak izi ile uygulama kilidi (Profil > Güvenlik) | `lib/security/appLock.ts` | Çalışır | Çalışır |
+| Diğer cihazlardaki oturumları kapatma | Profil > Güvenlik | Çalışır | Çalışır |
+| Sertifika sabitleme (Supabase) | `lib/security/hardening.ts` | Kapalı | Çalışır |
+| Root / jailbreak / kanca tespiti (uyarı) | `lib/security/hardening.ts` (jail-monkey) | Kapalı | Çalışır |
+| Android kod küçültme ve karartma (R8) | `app.json` expo-build-properties | – | Mağaza derlemesinde |
+
+### Sertifika sabitleme
+Sabitlenen açık anahtarlar: Google Trust Services WE1 (ara) ve GTS Root R4 (Supabase'in şu anki zinciri), yedek olarak GTS Root R1, ISRG Root X1/X2. Yaprak sertifika sabitlenmez (90 günde değişiyor). Supabase sertifika sağlayıcısını değiştirirse ve yeni zincir bu listede yoksa uygulama bağlanamaz; bu yüzden yayından önce ve her birkaç ayda bir kontrol et:
+```bash
+echo | openssl s_client -connect PROJE.supabase.co:443 -showcerts 2>/dev/null
+```
+Not: sabitleme HTTPS isteklerini (giriş, veritabanı, RPC) kapsar; gerçek zamanlı WebSocket bağlantısını kapsamaz. Mesaj içerikleri zaten uçtan uca şifreli olduğu için WebSocket'te taşınan veri okunamaz.
+
+### Supabase panelinde
+- Authentication > Sessions: JWT süresi 1800 sn (30 dk) ya da daha az; "Detect and revoke compromised refresh tokens" açık.
+- Yayından önce anonim girişi kapat (hızlı giriş sadece test içindir).
+
+### Sonraki adımlar (kendi derleme gerektirir)
+1. EAS development build (Expo hesabı): yukarıdaki "Kendi derleme" sütunu bununla devreye girer.
+2. Signal protokolü (libsignal, ileri gizlilik) için yerel modül + ön anahtar tabloları; ardından SQLCipher ile cihazda şifreli mesaj geçmişi.
+3. App Attest (iOS) / Play Integrity (Android) doğrulamasının sunucuda (Edge Function) yapılması.
+

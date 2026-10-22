@@ -10,6 +10,7 @@ import LegalSheet from './components/LegalSheet';
 import NotifPrime from './components/NotifPrime';
 import RequestToast from './components/RequestToast';
 import OfflineBanner from './components/OfflineBanner';
+import SecurityLayer from './components/SecurityLayer';
 import SwipeBack from './components/SwipeBack';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
@@ -763,6 +764,7 @@ function AppShell() {
     <View style={styles.root}>
       {revealed ? screen : null}
       {revealed ? <OfflineBanner /> : null}
+      <SecurityLayer active={Boolean(session && profile?.birth_year)} />
       <LegalSheet doc={legal} onClose={() => setLegal(null)} />
       {intro ? <SplashIntro onReveal={() => setRevealed(true)} onDone={() => setIntro(false)} /> : null}
     </View>
