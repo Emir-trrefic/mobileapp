@@ -7,6 +7,7 @@ import { FadeIn } from '../components/Transition';
 import { MAX_MESSAGE, open, peerKey, safetyCode, seal } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
 import { friendly } from '../lib/errors';
+import { venueLabel } from '../lib/requests';
 import { impact, tap, warning } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/keyboard';
 import { useInsets } from '../lib/layout';
@@ -239,7 +240,7 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
         </Text>
       </View>
       <Text style={styles.metaCenter}>
-        {conn.venue_name} kafesinde tanıştınız
+        {venueLabel(conn.venue_name)} kafesinde tanıştınız
       </Text>
       {note ? (
         <View style={[styles.noteBox, conn.direction === 'sent' && { alignSelf: 'flex-end' }]}>

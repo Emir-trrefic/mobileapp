@@ -18,7 +18,7 @@ type Props = {
   onDismiss: () => void;
 };
 
-const SHOW_MS = 9000;
+const SHOW_MS = 12000;
 
 // Uygulama açıkken yeni tanışma isteği gelince üstten inen afiş. Yukarı kaydırınca ya da birkaç saniye
 // sonra kendiliğinden kapanır; istek Bildirimler'de durmaya devam eder.
@@ -116,7 +116,7 @@ const makeStyles = (c: Palette) =>
   StyleSheet.create({
     wrap: { position: 'absolute', left: 10, right: 10, zIndex: 80, elevation: 80 },
     card: {
-      backgroundColor: c.glass,
+      backgroundColor: c.card,
       borderRadius: 22,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.border,

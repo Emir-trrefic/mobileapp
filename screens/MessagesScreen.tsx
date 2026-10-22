@@ -5,6 +5,7 @@ import Avatar from '../components/Avatar';
 import BellButton from '../components/BellButton';
 import { FadeIn } from '../components/Transition';
 import { open } from '../lib/e2ee';
+import { venueLabel } from '../lib/requests';
 import type { MyKeys } from '../lib/e2ee';
 import { friendly } from '../lib/errors';
 import { success, tap, warning } from '../lib/haptics';
@@ -202,7 +203,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
                           {ageFrom(x.birth_year) ? <Text style={styles.age}>{`, ${ageFrom(x.birth_year)}`}</Text> : null}
                         </Text>
                         <Text style={styles.sub} numberOfLines={1}>
-                          {x.venue_name} · {ago(x.created_at)}
+                          {venueLabel(x.venue_name)} · {ago(x.created_at)}
                         </Text>
                         {x.interests.length > 0 ? (
                           <Text style={styles.sub} numberOfLines={1}>
@@ -293,7 +294,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
                     </Text>
                     <Text style={styles.sub} numberOfLines={1}>
                       {x.status === 'pending'
-                        ? `${x.venue_name} · yanıt bekleniyor · ${ago(x.created_at)}`
+                        ? `${venueLabel(x.venue_name)} · yanıt bekleniyor · ${ago(x.created_at)}`
                         : `Şimdilik olmadı · ${ago(x.responded_at ?? x.created_at)}`}
                     </Text>
                   </View>

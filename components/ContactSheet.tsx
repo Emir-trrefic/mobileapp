@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { formatPhone, instagramUrl, linkedinUrl, phoneUrl, tiktokUrl, whatsappUrl, xUrl } from '../lib/contact';
 import { tap } from '../lib/haptics';
+import { venueLabel } from '../lib/requests';
 import { useInsets } from '../lib/layout';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
@@ -49,7 +50,7 @@ export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) 
                 {conn.display_name}
               </Text>
               <Text style={styles.sub} numberOfLines={1}>
-                {conn.venue_name}
+                {venueLabel(conn.venue_name)}
               </Text>
             </View>
           </View>
