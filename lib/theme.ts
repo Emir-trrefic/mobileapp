@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const BRAND: string | null = null;
 
 // Ekranlarda gösterilen sürüm (giriş ve profil ekranı buradan okur).
-export const APP_VERSION = '0.18';
+export const APP_VERSION = '0.19';
 
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];

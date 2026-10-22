@@ -85,7 +85,8 @@ export default function PersonCard({ person, width, shared, index, onPress, onMe
               hitSlop={8}
             >
               <LinearGradient colors={c.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.meetBg}>
-                <Ionicons name="hand-left" size={20} color="#fff" />
+                <Ionicons name="hand-left" size={15} color="#fff" />
+                <Text style={styles.meetText}>Tanış</Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -107,7 +108,7 @@ const makeStyles = (c: Palette) =>
     noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     initial: { color: 'rgba(255,255,255,0.9)', fontSize: 64, fontWeight: '800' },
     shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%' },
-    info: { position: 'absolute', left: 12, right: 12, bottom: 58 },
+    info: { position: 'absolute', left: 12, right: 12, bottom: 56 },
     name: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
     age: { fontWeight: '400' },
     sub: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3 },
@@ -132,5 +133,16 @@ const makeStyles = (c: Palette) =>
     },
     statusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     meet: { position: 'absolute', right: 10, bottom: 10 },
-    meetBg: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+    meetBg: {
+      height: 36,
+      borderRadius: 18,
+      paddingHorizontal: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.18)',
+    },
+    meetText: { color: '#fff', fontSize: 13.5, fontWeight: '800' },
   });

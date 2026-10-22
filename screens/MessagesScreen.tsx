@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
+import BellButton from '../components/BellButton';
 import { FadeIn } from '../components/Transition';
 import { open } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
@@ -20,6 +21,8 @@ type Props = {
   keys: MyKeys | null;
   onChanged: () => Promise<void> | void;
   onOpenChat: (c: Connection) => void;
+  notifCount: number;
+  onOpenNotifications: () => void;
 };
 
 function ago(iso: string): string {
@@ -41,7 +44,7 @@ function noteOf(x: Connection, keys: MyKeys | null): string | null {
   return open({ box: x.note_box, nonce: x.note_nonce, sender_key: x.note_sender_key, recipient_key: x.note_recipient_key }, keys);
 }
 
-export default function MessagesScreen({ connections, heads, keys, onChanged, onOpenChat }: Props) {
+export default function MessagesScreen({ connections, heads, keys, onChanged, onOpenChat, notifCount, onOpenNotifications }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -85,10 +88,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
       if (accept) onOpenChat({ ...x, status: 'accepted', responded_at: new Date().toISOString() });
     };
     if (accept) {
-      Alert.alert(`${x.display_name} ile tanışmak ister misin?`, 'Kabul edersen aranızda uçtan uca şifreli bir sohbet açılır.', [
-        { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Kabul et', onPress: doIt },
-      ]);
+      doIt();
     } else {
       doIt();
     }
@@ -146,6 +146,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
             <Ionicons name="lock-closed" size={12} color={c.success} />
             <Text style={styles.secureText}>Uçtan uca şifreli</Text>
           </View>
+          <BellButton count={notifCount} onPress={onOpenNotifications} style={{ marginLeft: 10, width: 38, height: 38 }} />
         </View>
 
         {/* Yeni eşleşmeler: henüz yazışılmamış sohbetler */}
@@ -222,14 +223,14 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
                         onPress={() => respond(x, false)}
                         disabled={busyId === x.request_id}
                       >
-                        <Text style={styles.btnGhostText}>Reddet</Text>
+                        <Text style={styles.btnGhostText}>Şimdi değil</Text>
                       </Pressable>
                       <Pressable
                         style={[styles.btn, styles.btnPrimary, { flex: 1, marginLeft: 8 }, busyId === x.request_id && { opacity: 0.6 }]}
                         onPress={() => respond(x, true)}
                         disabled={busyId === x.request_id}
                       >
-                        <Text style={styles.btnPrimaryText}>Kabul et</Text>
+                        <Text style={styles.btnPrimaryText}>Tanışalım</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -293,7 +294,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
                     <Text style={styles.sub} numberOfLines={1}>
                       {x.status === 'pending'
                         ? `${x.venue_name} · yanıt bekleniyor · ${ago(x.created_at)}`
-                        : `Kabul edilmedi · ${ago(x.responded_at ?? x.created_at)}`}
+                        : `Şimdilik olmadı · ${ago(x.responded_at ?? x.created_at)}`}
                     </Text>
                   </View>
                   {x.status === 'pending' ? (

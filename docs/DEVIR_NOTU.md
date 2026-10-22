@@ -36,7 +36,7 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012 → 013**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
@@ -45,6 +45,7 @@ Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 �
 - 010: hesap güvenliği. profiles.last_name (gizli), tiktok, x_handle, linkedin + sunucu kısıtları (NOT VALID: eski kayıtları bozmaz), avatars kovası 2 MB / JPEG-PNG-WebP, herkese açık listeleme kapatıldı, saatte 20 istek sınırı, indeksler, my_connections hesap linklerini de döndürüyor.
 - 011: uçtan uca şifreli sohbet. user_keys (sadece açık anahtar), chat_messages (sadece şifreli metin, Realtime yayınına eklenir), send_chat_message / mark_chat_read / my_chat_heads, isteğe şifreli not, cancel_meet_request, kabul için iletişim bilgisi şartı kaldırıldı, 6 örnek kişi + demo_tick (demo kafede istekleri yanıtlar).
 - 012: KVKK ve SMS. consents (onay sürümleri), app_settings.require_phone + phone_verified (istek gönderme/kabulde zorunluluk), my_account_status, export_my_data (md. 11), purge_old_data (pg_cron ile gece), güvenlik düzeltmeleri: is_demo kilidi, şikâyet sınırı, venues tablosu dışarıya kapalı.
+- 013: bildirimler. push_tokens (cihaz başına Expo bildirim adresi), set_push_token / clear_push_token. Gönderim: supabase/functions/notify + Database Webhooks (docs/BILDIRIM.md).
 - 009: ziyaretler. venues_nearby artık my_visits (kullanıcının o kafeye kaç kez check-in yaptığı) döndürüyor; checkins(user_id, venue_id) indeksi. Dosyanın sonunda kafeye 3D profil girme örneği (update ... set layout).
 - 008: kafe 3D profili. venues.layout (jsonb: v, size, style, wall, floor, accent, counter, tables, plants, windows; renkler palet sırası), is_valid_cafe_layout, can_edit_venue (yönetici ya da demo kafenin sahibi), set_venue_layout, venues_nearby artık layout ve can_edit döndürüyor.
 - 007: 3D kafe. venues.model_url (kafenin kendi glTF/GLB modeli, https; boşsa örnek kafe), venues.demo_people (demo kafedeki örnek kişi sayısı), set_venue_model(kafe, url) (yönetici), venues_nearby artık demo_people ve model_url döndürüyor (active_count sadece gerçek kişiler).
@@ -167,4 +168,10 @@ Sürüm 0.18 (arayüz, KVKK, SMS, denetim):
 - SMS doğrulama: `screens/PhoneVerifyScreen.tsx` (Profil > Güvenlik ya da zorunluysa girişte), Netgsm kancası `supabase/functions/send-sms`. Kurulum: docs/SMS.md.
 - İnternet yokken üstte uyarı şeridi (`components/OfflineBanner.tsx`, NetInfo). Sunucu/ağ hataları düzgün Türkçe (`lib/errors.ts`).
 - Geçişler: sohbet ve kafe ekranında soldan kaydırarak geri dönme (`components/SwipeBack.tsx`); kafe ekranında istek kabul edilince "Sohbete git"; check-in'de çift dokunma koruması; iletişim bilgisi artık isteğe bağlı (sohbet var).
+
+Sürüm 0.19 (tanışma isteği ve bildirimler):
+- Bildirimler ekranı (zil: harita sol üst, Mesajlar sağ üst; rozet = bekleyen istek + yeni kabul). Gelen istek kartı (`components/RequestCard.tsx`): kim, kafe, ortak ilgi alanları, şifreli not, "Şimdi değil" / "Tanışalım".
+- Uygulama açıkken üstten istek afişi (kaydırınca kapanır), telefon bildirimi düğmeleri (Tanışalım / Şimdi değil), izin öncesi açıklama penceresi.
+- Kafe ekranı: kişi kartında "Tanış" düğmesi, üstte "Seninle tanışmak isteyenler" kartları, istek gönderilince alttan onay şeridi.
+- Uzak bildirim kurulumu: docs/BILDIRIM.md (EAS proje kimliği + notify fonksiyonu + webhook).
 

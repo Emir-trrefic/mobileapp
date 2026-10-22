@@ -103,20 +103,20 @@ export function requestLabel(status: RequestStatus | null, dir: 'sent' | 'receiv
   if (!status) return null;
   if (status === 'pending') return dir === 'received' ? 'Sana istek gönderdi' : 'İstek gönderildi';
   if (status === 'accepted') return dir === 'received' ? 'Kabul ettin' : 'Kabul etti';
-  return dir === 'received' ? 'Reddettin' : 'Kabul edilmedi';
+  return dir === 'received' ? 'Şimdi değil dedin' : 'Şimdilik olmadı';
 }
 
 export function requestNote(status: RequestStatus | null, dir: 'sent' | 'received' | null): string | null {
   if (!status) return null;
   if (status === 'pending') {
     return dir === 'received'
-      ? 'Bu kişi sana tanışma isteği gönderdi. Mesajlar sekmesinden yanıtlayabilirsin.'
-      : 'İstek gönderildi, yanıt bekleniyor.';
+      ? 'Seninle tanışmak istiyor. Bildirimler’den yanıtlayabilirsin.'
+      : 'İstek gönderildi. Kabul ederse sana haber vereceğiz.';
   }
   if (status === 'accepted') {
     return dir === 'received'
       ? 'İsteği kabul ettin. Mesajlar sekmesinden şifreli sohbet edebilirsiniz.'
       : 'İsteğin kabul edildi. Mesajlar sekmesinden şifreli sohbet edebilirsiniz.';
   }
-  return dir === 'received' ? 'Bu isteği reddettin.' : 'İsteğin kabul edilmedi.';
+  return dir === 'received' ? 'Bu isteğe şimdi değil dedin.' : 'Bu sefer olmadı. Kafede başka insanlar da var.';
 }

@@ -7,6 +7,8 @@ import AnimatedButton from './components/AnimatedButton';
 import Backdrop from './components/Backdrop';
 import ErrorBoundary from './components/ErrorBoundary';
 import LegalSheet from './components/LegalSheet';
+import NotifPrime from './components/NotifPrime';
+import RequestToast from './components/RequestToast';
 import OfflineBanner from './components/OfflineBanner';
 import SwipeBack from './components/SwipeBack';
 import TabBar from './components/TabBar';
@@ -19,11 +21,26 @@ import type { MyKeys } from './lib/e2ee';
 import { AYDINLATMA, KOSULLAR, LEGAL_VERSION } from './lib/legal';
 import type { LegalDoc } from './lib/legal';
 import { LocationProvider, useGps } from './lib/location';
+import * as Notifications from 'expo-notifications';
+import {
+  ACTION_ACCEPT,
+  ACTION_DECLINE,
+  askNotificationPermission,
+  hasRemotePush,
+  notificationPermission,
+  notifyAcceptedLocally,
+  notifyRequestLocally,
+  registerPush,
+  setupNotificationCategories,
+  unregisterPush,
+} from './lib/notifications';
+import type { NotifData, PermissionState } from './lib/notifications';
+import { respondRequest } from './lib/requests';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
-import type { ActiveCheckin, ChatHead, Connection, IncomingRequest, Profile } from './lib/types';
+import type { ActiveCheckin, ChatHead, Connection, Profile } from './lib/types';
 import IntroScreen from './screens/IntroScreen';
 import PhoneVerifyScreen from './screens/PhoneVerifyScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -32,6 +49,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import MapScreen from './screens/MapScreen';
 import VenueScreen from './screens/VenueScreen';
 import MessagesScreen from './screens/MessagesScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 import ChatScreen from './screens/ChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
@@ -41,6 +59,8 @@ type Entry = 'welcome' | 'auth';
 type AccountStatus = { phone: string | null; phone_verified: boolean; require_phone: boolean; consents: Record<string, string> };
 
 const INTRO_KEY = 'denk.intro.v1';
+const NOTIF_SEEN_KEY = 'denk.notif.seen';
+const PRIME_KEY = 'denk.notif.prime.v1';
 
 // Uygulama açıkken konumu sunucuya bildirir (dakikada bir ve ön plana dönünce).
 // Sunucu kafeden uzaklaştığını görürse check-in'i bitirir; 30 dk haber gelmezse kişi görünmez olur.
@@ -120,6 +140,11 @@ function AppShell() {
   const [phoneOpen, setPhoneOpen] = useState(false); // profil > telefon doğrula
   const [legal, setLegal] = useState<LegalDoc | null>(null);
   const [consentBusy, setConsentBusy] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false); // bildirimler ekranı
+  const [toast, setToast] = useState<Connection | null>(null); // uygulama içi istek afişi
+  const [permission, setPermission] = useState<PermissionState>('undetermined');
+  const [prime, setPrime] = useState(false); // bildirim izni öncesi açıklama
+  const [seenAt, setSeenAt] = useState(0); // bildirimlerin en son görüldüğü an
 
   useEffect(() => {
     AsyncStorage.getItem(INTRO_KEY)
@@ -229,9 +254,37 @@ function AppShell() {
     setConsentBusy(false);
   }, [loadAccount]);
 
-  // Uçtan uca şifreleme anahtarları: bu cihazda yoksa üretilir, açık anahtar sunucuya yazılır.
   const userId = session?.user.id ?? null;
   const hasProfile = Boolean(profile?.birth_year);
+
+  // Çıkışta bu cihaza artık bildirim gitmesin.
+  const signOut = useCallback(async () => {
+    await unregisterPush().catch(() => {});
+    await supabase.auth.signOut();
+  }, []);
+
+  // Bildirimler: düğmeler (Tanışalım / Şimdi değil), izin durumu, uzak bildirim adresi.
+  useEffect(() => {
+    AsyncStorage.getItem(NOTIF_SEEN_KEY)
+      .then((v) => setSeenAt(v ? Number(v) || 0 : 0))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!userId || !hasProfile) return;
+    setupNotificationCategories();
+    notificationPermission().then((p) => {
+      setPermission(p);
+      if (p === 'granted') registerPush();
+    });
+  }, [userId, hasProfile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enableNotifications = useCallback(async () => {
+    const p = await askNotificationPermission();
+    setPermission(p);
+    if (p === 'granted') registerPush();
+  }, []);
+
+  // Uçtan uca şifreleme anahtarları: bu cihazda yoksa üretilir, açık anahtar sunucuya yazılır.
   useEffect(() => {
     if (userId && hasProfile) loadAccount();
   }, [userId, hasProfile, loadAccount]);
@@ -268,24 +321,8 @@ function AppShell() {
   );
 
   // Bulunduğum kafedeki gelen istekler (kafe ekranında gösterilir).
-  const incoming = useMemo<IncomingRequest[]>(
-    () =>
-      active
-        ? pendingIncoming
-            .filter((x) => x.venue_id === active.venue_id)
-            .map((x) => ({
-              request_id: x.request_id,
-              from_user: x.other_id,
-              display_name: x.display_name,
-              bio: x.bio,
-              avatar_url: x.avatar_url,
-              birth_year: x.birth_year,
-              job: x.job,
-              interests: x.interests,
-              venue_id: x.venue_id,
-              created_at: x.created_at,
-            }))
-        : [],
+  const incoming = useMemo<Connection[]>(
+    () => (active ? pendingIncoming.filter((x) => x.venue_id === active.venue_id) : []),
     [pendingIncoming, active],
   );
 
@@ -310,6 +347,122 @@ function AppShell() {
     },
     [openChat],
   );
+
+  // ------------------------------------------------------------ bildirimler
+
+  // Yeni gelen istek ya da kabul edilen isteğim: uygulama açıksa üstten afiş, değilse (uzak bildirim
+  // kurulu değilse) telefonun yerel bildirimi. İlk yüklemedeki eski kayıtlar bildirilmez.
+  const known = useRef<{ ready: boolean; pending: Set<string>; accepted: Set<string> }>({
+    ready: false,
+    pending: new Set(),
+    accepted: new Set(),
+  });
+  const notifOpenRef = useRef(notifOpen);
+  notifOpenRef.current = notifOpen;
+  useEffect(() => {
+    const k = known.current;
+    const pendingNow = connections.filter((x) => x.direction === 'received' && x.status === 'pending');
+    const acceptedNow = connections.filter((x) => x.direction === 'sent' && x.status === 'accepted');
+    if (k.ready) {
+      const inApp = AppState.currentState === 'active';
+      const fresh = pendingNow.filter((x) => !k.pending.has(x.request_id));
+      if (fresh.length > 0) {
+        if (inApp && !notifOpenRef.current) setToast(fresh[0]);
+        else if (!inApp && !hasRemotePush()) fresh.forEach((x) => notifyRequestLocally(x));
+      }
+      for (const x of acceptedNow.filter((y) => !k.accepted.has(y.request_id))) {
+        if (!inApp && !hasRemotePush()) notifyAcceptedLocally(x);
+      }
+    }
+    if (connections.length > 0 || k.ready) k.ready = true;
+    k.pending = new Set(pendingNow.map((x) => x.request_id));
+    k.accepted = new Set(acceptedNow.map((x) => x.request_id));
+  }, [connections]);
+
+  useEffect(() => {
+    if (!session) known.current = { ready: false, pending: new Set(), accepted: new Set() };
+  }, [session]);
+
+  // Telefon bildirimine (ya da düğmesine) dokunulunca.
+  const handleResponse = useCallback(
+    async (r: Notifications.NotificationResponse) => {
+      const d = (r.notification.request.content.data ?? {}) as NotifData;
+      if (!d.request_id) return;
+      if (d.type === 'request') {
+        if (r.actionIdentifier === ACTION_ACCEPT || r.actionIdentifier === ACTION_DECLINE) {
+          const accept = r.actionIdentifier === ACTION_ACCEPT;
+          const err = await respondRequest(d.request_id, accept);
+          await loadConnections();
+          if (err) Alert.alert('Yanıtlanamadı', err);
+          else if (accept) openChatById(d.request_id);
+          return;
+        }
+        setNotifOpen(true);
+        return;
+      }
+      await loadConnections();
+      openChatById(d.request_id);
+    },
+    [loadConnections, openChatById],
+  );
+  useEffect(() => {
+    if (!userId || !hasProfile) return;
+    Notifications.getLastNotificationResponseAsync()
+      .then((r) => {
+        if (r) {
+          handleResponse(r);
+          Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
+        }
+      })
+      .catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => sub.remove();
+  }, [userId, hasProfile, handleResponse]);
+
+  const respondFromToast = useCallback(
+    async (x: Connection, accept: boolean) => {
+      const err = await respondRequest(x.request_id, accept);
+      await loadConnections();
+      if (err) {
+        Alert.alert('Yanıtlanamadı', err);
+        return;
+      }
+      if (accept) openChat({ ...x, status: 'accepted', responded_at: new Date().toISOString() });
+    },
+    [loadConnections, openChat],
+  );
+
+  const closeNotifications = useCallback(() => {
+    setNotifOpen(false);
+    const now = Date.now();
+    setSeenAt(now);
+    AsyncStorage.setItem(NOTIF_SEEN_KEY, String(now)).catch(() => {});
+  }, []);
+
+  // Zil rozeti: yanıt bekleyen istekler + son bakıştan sonra kabul edilen isteklerim.
+  const notifCount = useMemo(
+    () =>
+      pendingIncoming.length +
+      connections.filter(
+        (x) => x.direction === 'sent' && x.status === 'accepted' && new Date(x.responded_at ?? x.created_at).getTime() > seenAt,
+      ).length,
+    [connections, pendingIncoming, seenAt],
+  );
+
+  // Kafeye ilk girişte (henüz sorulmadıysa) bildirim izni için kısa açıklama gösterilir.
+  useEffect(() => {
+    if (!venueOpen || permission !== 'undetermined') return;
+    AsyncStorage.getItem(PRIME_KEY)
+      .then((v) => {
+        if (v !== '1') setTimeout(() => setPrime(true), 900);
+      })
+      .catch(() => {});
+  }, [venueOpen, permission]);
+  const closePrime = useCallback(async (allow: boolean) => {
+    setPrime(false);
+    AsyncStorage.setItem(PRIME_KEY, '1').catch(() => {});
+    if (allow) setTimeout(() => enableNotifications(), 350);
+  }, [enableNotifications]);
 
   // Check-in kalmadıysa kafe ekranı kapanır.
   useEffect(() => {
@@ -463,6 +616,8 @@ function AppShell() {
             }}
             onOpenVenue={() => setVenueOpen(true)}
             onImmersive={setImmersive}
+            notifCount={notifCount}
+            onOpenNotifications={() => setNotifOpen(true)}
           />
         </Pane>
 
@@ -473,6 +628,8 @@ function AppShell() {
             keys={keys}
             onChanged={loadConnections}
             onOpenChat={openChat}
+            notifCount={notifCount}
+            onOpenNotifications={() => setNotifOpen(true)}
           />
         </Pane>
 
@@ -484,7 +641,7 @@ function AppShell() {
             onLegal={(k) => setLegal(k === 'kosullar' ? KOSULLAR : AYDINLATMA)}
             email={session?.user.email ?? ''}
             onSaved={(p) => setProfile(p)}
-            onSignOut={() => supabase.auth.signOut()}
+            onSignOut={signOut}
           />
         </Pane>
 
@@ -525,6 +682,23 @@ function AppShell() {
             />
             </SwipeBack>
           </Pane>
+        ) : notifOpen ? (
+          <Pane visible from={1}>
+            <SwipeBack onBack={closeNotifications}>
+              <NotificationsScreen
+                connections={connections}
+                heads={heads}
+                keys={keys}
+                myInterests={profile.interests}
+                seenAt={seenAt}
+                permission={permission}
+                onEnable={enableNotifications}
+                onRefresh={loadConnections}
+                onOpenChat={openChat}
+                onClose={closeNotifications}
+              />
+            </SwipeBack>
+          </Pane>
         ) : venueOpen && active ? (
           <Pane visible from={1}>
             <SwipeBack onBack={() => setVenueOpen(false)}>
@@ -548,6 +722,15 @@ function AppShell() {
         ) : immersive && tab === 'map' ? null : (
           <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length + unread} live={Boolean(active)} />
         )}
+
+        <RequestToast
+          conn={toast}
+          keys={keys}
+          onRespond={respondFromToast}
+          onOpen={() => setNotifOpen(true)}
+          onDismiss={() => setToast(null)}
+        />
+        <NotifPrime visible={prime && !needsConsent} onAllow={() => closePrime(true)} onLater={() => closePrime(false)} />
 
         {/* Koşullar güncellendiyse ya da daha önce onay kaydı yoksa bir kez sorulur */}
         <Modal visible={needsConsent && !legal} transparent animationType="fade">

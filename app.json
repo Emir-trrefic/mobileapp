@@ -17,7 +17,13 @@
         }
       ],
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#050A18"
+        }
+      ]
     ],
     "backgroundColor": "#050A18",
     "splash": {

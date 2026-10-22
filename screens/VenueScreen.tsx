@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   FlatList,
   Pressable,
   RefreshControl,
@@ -15,6 +16,7 @@ import Avatar from '../components/Avatar';
 import Backdrop from '../components/Backdrop';
 import PersonCard from '../components/PersonCard';
 import PersonSheet from '../components/PersonSheet';
+import RequestCard from '../components/RequestCard';
 import RequestSheet from '../components/RequestSheet';
 import { FadeIn } from '../components/Transition';
 import { peerKey, seal } from '../lib/e2ee';
@@ -22,18 +24,17 @@ import type { MyKeys } from '../lib/e2ee';
 import { friendly } from '../lib/errors';
 import { success, tap, warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
-import { ageFrom } from '../lib/profile';
 import { supabase } from '../lib/supabase';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
-import type { ActiveCheckin, IncomingRequest, Person } from '../lib/types';
+import type { ActiveCheckin, Connection, Person } from '../lib/types';
 import { fmtRemaining, venueTitle } from '../lib/venue';
 
 type Props = {
   active: ActiveCheckin | null;
   userId: string;
   myInterests: string[];
-  incoming: IncomingRequest[];
+  incoming: Connection[];
   keys: MyKeys | null;
   onOpenChat: (requestId: string) => void;
   onIncomingChanged: () => void;
@@ -51,6 +52,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
   const insets = useInsets();
   const { width } = useWindowDimensions();
   const cardW = Math.floor((width - PAD * 2 - GAP) / 2);
+  const reqW = incoming.length > 1 ? width - PAD * 2 - 36 : width - PAD * 2;
 
   const [people, setPeople] = useState<Person[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -58,6 +60,9 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composeFor, setComposeFor] = useState<Person | null>(null);
   const [sending, setSending] = useState(false);
+  const [answering, setAnswering] = useState<{ id: string; kind: 'accept' | 'decline' } | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null); // "istek gönderildi" şeridi
+  const sentAnim = useRef(new Animated.Value(0)).current;
   const [now, setNow] = useState(Date.now());
   const leaving = useRef(false);
 
@@ -109,6 +114,16 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
     setRefreshing(false);
   }
 
+  function showSent(name: string) {
+    setSentTo(name.trim().split(/\s+/)[0] || name);
+    sentAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(sentAnim, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }),
+      Animated.delay(2600),
+      Animated.timing(sentAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => setSentTo(null));
+  }
+
   // Not varsa alıcının açık anahtarıyla telefonda şifrelenir; sunucuya sadece şifreli hali gider.
   async function sendRequest(p: Person, note: string) {
     if (!active || sending) return;
@@ -140,6 +155,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
     }
     success();
     setComposeFor(null);
+    showSent(p.display_name);
     refresh();
     // Örnek kişiler birkaç saniye içinde yanıt verir.
     setTimeout(() => {
@@ -147,8 +163,10 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
     }, 3600);
   }
 
-  async function respond(r: IncomingRequest, accept: boolean) {
+  async function respond(r: Connection, accept: boolean) {
+    setAnswering({ id: r.request_id, kind: accept ? 'accept' : 'decline' });
     const { error } = await supabase.rpc('respond_meet_request', { p_request: r.request_id, p_accept: accept });
+    setAnswering(null);
     if (error) {
       warning();
       Alert.alert('Yanıtlanamadı', friendly(error));
@@ -245,33 +263,35 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
 
       {incoming.length > 0 ? (
         <FadeIn delay={100} style={styles.requests}>
-          <Text style={styles.sectionTitle}>Sana gelen istekler · {incoming.length}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: PAD }}>
+          <Text style={styles.sectionTitle}>Seninle tanışmak isteyenler · {incoming.length}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={reqW + 12}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingRight: PAD }}
+          >
             {incoming.map((r) => (
-              <View key={r.request_id} style={styles.requestCard}>
-                <Avatar uri={r.avatar_url} name={r.display_name} size={48} ring />
-                <View style={styles.requestText}>
-                  <Text style={styles.requestName} numberOfLines={1}>
-                    {r.display_name}
-                    {ageFrom(r.birth_year) ? <Text style={styles.requestAge}>{`  ${ageFrom(r.birth_year)}`}</Text> : null}
-                  </Text>
-                  <Text style={styles.requestSub} numberOfLines={1}>
-                    {r.interests.slice(0, 2).join(' · ') || 'Seninle tanışmak istiyor'}
-                  </Text>
-                </View>
-                <Pressable style={[styles.circle, { backgroundColor: c.successSoft }]} onPress={() => respond(r, true)}>
-                  <Ionicons name="checkmark" size={22} color={c.success} />
-                </Pressable>
-                <Pressable style={[styles.circle, { backgroundColor: c.dangerSoft }]} onPress={() => respond(r, false)}>
-                  <Ionicons name="close" size={22} color={c.danger} />
-                </Pressable>
+              <View key={r.request_id} style={{ width: reqW, marginRight: 12 }}>
+                <RequestCard
+                  conn={r}
+                  keys={keys}
+                  myInterests={myInterests}
+                  busy={answering?.id === r.request_id ? answering.kind : null}
+                  onRespond={(accept) => respond(r, accept)}
+                />
               </View>
             ))}
           </ScrollView>
         </FadeIn>
       ) : null}
 
-      {people.length > 0 ? <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Şu an burada</Text> : null}
+      {people.length > 0 ? (
+        <View style={{ marginTop: 6 }}>
+          <Text style={styles.sectionTitle}>Şu an burada</Text>
+          <Text style={styles.hint}>Profili görmek için karta, tanışmak için “Tanış”a dokun.</Text>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -324,6 +344,26 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
         }}
         onMore={more}
       />
+
+      {sentTo ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.sent,
+            {
+              bottom: insets.bottom + 18,
+              opacity: sentAnim,
+              transform: [{ translateY: sentAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={18} color={c.success} />
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <Text style={styles.sentTitle}>İsteğin gönderildi</Text>
+            <Text style={styles.sentSub}>{sentTo} kabul ederse sana haber vereceğiz.</Text>
+          </View>
+        </Animated.View>
+      ) : null}
 
       <RequestSheet
         person={composeFor}
@@ -421,6 +461,26 @@ const makeStyles = (c: Palette) =>
     requestSub: { color: c.muted, fontSize: 12, marginTop: 3 },
     circle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
 
+    hint: { color: c.muted, fontSize: 13, marginTop: -6, marginBottom: 12 },
+    sent: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.glass,
+      borderRadius: 18,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      shadowColor: '#000',
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+    },
+    sentTitle: { color: c.text, fontSize: 14.5, fontWeight: '800' },
+    sentSub: { color: c.muted, fontSize: 12.5, marginTop: 1 },
     waiting: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 20 },
     waitingTitle: { color: c.text, fontSize: 18, fontWeight: '800', marginTop: 14 },
     waitingText: { color: c.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 6 },

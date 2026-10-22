@@ -23,6 +23,7 @@ import AddVenueModal from '../components/AddVenueModal';
 import CafeBuilding, { BUILDING_SIZE, buildingTier } from '../components/CafeBuilding';
 import CafeScene from '../components/CafeScene';
 import AnimatedButton from '../components/AnimatedButton';
+import BellButton from '../components/BellButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
 import { distanceMeters } from '../lib/geo';
@@ -41,6 +42,8 @@ type Props = {
   onCheckedIn: () => void;
   onOpenVenue: () => void;
   onImmersive?: (on: boolean) => void; // 3D kafe açıkken alt sekme çubuğu gizlensin
+  notifCount: number;
+  onOpenNotifications: () => void;
 };
 
 const GAP = 12;
@@ -200,7 +203,7 @@ const VenueCard = memo(function VenueCard({
   );
 });
 
-export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersive }: Props) {
+export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersive, notifCount, onOpenNotifications }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -573,6 +576,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
 
       {/* Üst çubuk */}
       <FadeIn y={-16} delay={150} style={[styles.topBar, { top: insets.top + 8 }]}>
+        <BellButton count={notifCount} onPress={onOpenNotifications} />
         <View style={styles.topButtons}>
           {isAdmin ? (
             <Pressable
@@ -784,7 +788,7 @@ const makeStyles = (c: Palette) =>
       left: 16,
       right: 16,
       flexDirection: 'row',
-      justifyContent: 'flex-end',
+      justifyContent: 'space-between',
       alignItems: 'center',
     },
     topButtons: { flexDirection: 'row' },
