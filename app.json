@@ -19,12 +19,12 @@
       "expo-status-bar",
       "expo-secure-store"
     ],
-    "backgroundColor": "#081028",
+    "backgroundColor": "#050A18",
     "splash": {
       "image": "./assets/splash-icon.png",
       "imageWidth": 180,
       "resizeMode": "contain",
-      "backgroundColor": "#081028"
+      "backgroundColor": "#050A18"
     },
     "icon": "./assets/icon.png"
   }

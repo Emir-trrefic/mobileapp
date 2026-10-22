@@ -105,9 +105,10 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         ? birthYear !== null
         : step === 3
           ? interests.length >= MIN_INTERESTS
-          : step === 4
-            ? Boolean(phone.trim() || insta.trim())
-            : true;
+          : true;
+
+  // Fotoğraf ve iletişim adımları boş geçilebilir.
+  const skippable = (step === 2 && !photoUri) || (step === 4 && !phone.trim() && !insta.trim() && !tiktok.trim() && !xHandle.trim() && !linkedin.trim());
 
   function toggleInterest(label: string) {
     setInterests((cur) => {
@@ -123,7 +124,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   async function finish() {
     Keyboard.dismiss();
     if (birthYear === null) return;
-    const contact = parseContact(phone, insta, true);
+    const contact = parseContact(phone, insta, false);
     const links = parseLinks(tiktok, xHandle, linkedin);
     if (contact.error || links.error) {
       setError(contact.error ?? links.error);
@@ -176,7 +177,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   function next() {
     if (!canNext) return;
     if (step === 4) {
-      const contact = parseContact(phone, insta, true);
+      const contact = parseContact(phone, insta, false);
       const links = parseLinks(tiktok, xHandle, linkedin);
       if (contact.error || links.error) {
         setError(contact.error ?? links.error);
@@ -224,7 +225,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
     { t: 'Nelerden hoşlanıyorsun?', s: `En az ${MIN_INTERESTS}, en fazla ${MAX_INTERESTS} tane seç.` },
     {
       t: 'İletişim bilgin',
-      s: 'Sadece tanışma isteğini kabul ettiğin kişi görür. Birini yazman yeterli.',
+      s: 'İsteğe bağlı. Yazdıklarını sadece isteğini kabul ettiğin kişi görür.',
     },
     { t: 'Biraz kendinden bahset', s: 'İkisi de isteğe bağlı, istersen boş geç.' },
   ];
@@ -364,6 +365,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
                 />
                 <Text style={styles.photoNote}>
                   {photoUri ? 'Harika görünüyor' : 'Dilersen şimdilik geçip sonra profilinden ekleyebilirsin.'}
+                  {'\n'}Fotoğrafını sadece aynı kafedeki kişiler görür.
                 </Text>
               </View>
             )}
@@ -517,8 +519,8 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
         {/* Alt buton */}
         <View style={[styles.bottom, { paddingBottom: keyboard > 0 ? keyboard + 10 : insets.bottom + 14 }]}>
           <AnimatedButton
-            title={step === STEPS - 1 ? 'Bitir ve haritaya geç' : step === 2 && !photoUri ? 'Şimdilik geç' : 'Devam'}
-            variant={step === 2 && !photoUri ? 'soft' : 'primary'}
+            title={step === STEPS - 1 ? 'Bitir ve haritaya geç' : skippable ? 'Şimdilik geç' : 'Devam'}
+            variant={skippable ? 'soft' : 'primary'}
             icon={step === STEPS - 1 ? 'checkmark' : 'arrow-forward'}
             iconRight={step !== STEPS - 1}
             disabled={!canNext}

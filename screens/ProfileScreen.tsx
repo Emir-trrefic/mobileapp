@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  Share,
   ActivityIndicator,
   Alert,
   Animated,
@@ -24,6 +25,7 @@ import { tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { forgetMyKeys } from '../lib/e2ee';
+import { friendly } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { APP_VERSION, BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
 import type { Palette, ThemePref } from '../lib/theme';
@@ -35,6 +37,9 @@ type Props = {
   email: string;
   onSaved: (p: Profile) => void;
   onSignOut: () => void;
+  phoneVerified: boolean | null; // null: bilinmiyor (012 çalıştırılmamış)
+  onVerifyPhone: () => void;
+  onLegal: (k: 'kosullar' | 'aydinlatma') => void;
 };
 
 // ---------------------------------------------------------------- küçük parçalar
@@ -138,7 +143,7 @@ function ThemeSwitch() {
 
 // ---------------------------------------------------------------- ekran
 
-export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Props) {
+export default function ProfileScreen({ profile, email, onSaved, onSignOut, phoneVerified, onVerifyPhone, onLegal }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -155,6 +160,22 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
   const interestText =
     interests.length === 0 ? 'Ekle' : interests.slice(0, 2).join(', ') + (interests.length > 2 ? ` +${interests.length - 2}` : '');
   const edit = () => setEditing(true);
+
+  // KVKK md. 11: hesapla ilgili tüm veriler tek dosyada (mesaj içerikleri şifreli olduğu için hariç).
+  async function exportData() {
+    tap();
+    const { data, error } = await supabase.rpc('export_my_data');
+    if (error || !data) {
+      warning();
+      Alert.alert('Hazırlanamadı', friendly(error));
+      return;
+    }
+    try {
+      await Share.share({ title: 'Verilerim', message: JSON.stringify(data, null, 2) });
+    } catch {
+      // paylaşım kapatıldı
+    }
+  }
 
   function confirmSignOut() {
     Alert.alert('Çıkış yapılsın mı?', undefined, [
@@ -182,7 +203,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
       }
     } catch (e) {
       warning();
-      Alert.alert('Hesap silinemedi', e instanceof Error ? e.message : 'Bir şeyler ters gitti, tekrar dene.');
+      Alert.alert('Hesap silinemedi', friendly(e));
     } finally {
       setBusy(false);
     }
@@ -239,18 +260,16 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
 
         <Group
           title="İletişim"
-          footer="Telefon ve Instagram yalnızca isteğini kabul ettiğin kişiyle paylaşılır. İstek kabul etmek için en az biri gerekli."
+          footer="İsteğe bağlı. Eklediklerin yalnızca isteğini kabul ettiğin kişiye gösterilir."
         >
           <Row
             label="Telefon"
             value={profile.phone ? formatPhone(profile.phone) : 'Ekle'}
-            placeholder={!profile.phone && !profile.instagram}
             onPress={edit}
           />
           <Row
             label="Instagram"
             value={profile.instagram ? `@${profile.instagram}` : 'Ekle'}
-            placeholder={!profile.phone && !profile.instagram}
             onPress={edit}
           />
           <Row label="TikTok" value={profile.tiktok ? `@${profile.tiktok}` : 'Ekle'} onPress={edit} />
@@ -267,6 +286,27 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
         <Group title="Gizlilik" footer="Kafeden ayrılınca ya da süre dolunca kimse seni göremez.">
           <Row label="Kimler görebilir" value="Aynı kafedekiler" />
           <Row label="Görünür kalma süresi" value="3 saat" last />
+        </Group>
+
+        {phoneVerified !== null ? (
+          <Group
+            title="Güvenlik"
+            footer={phoneVerified ? 'Numaran doğrulandı. Kimseye gösterilmez.' : 'Numaranı doğrulamak hesabını sahte hesaplardan ayırır.'}
+          >
+            <Row
+              label="Telefon doğrulama"
+              value={phoneVerified ? 'Doğrulandı' : 'Doğrula'}
+              tone={phoneVerified ? undefined : 'accent'}
+              onPress={phoneVerified ? undefined : onVerifyPhone}
+              last
+            />
+          </Group>
+        ) : null}
+
+        <Group title="Verilerim" footer="KVKK kapsamındaki haklarını buradan kullanabilirsin. Diğer talepler için Aydınlatma Metni'ndeki adrese yaz.">
+          <Row label="Verilerimin kopyasını al" onPress={exportData} />
+          <Row label="KVKK Aydınlatma Metni" onPress={() => onLegal('aydinlatma')} />
+          <Row label="Kullanım Koşulları" onPress={() => onLegal('kosullar')} last />
         </Group>
 
         {__DEV__ ? (

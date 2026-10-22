@@ -19,6 +19,7 @@ import RequestSheet from '../components/RequestSheet';
 import { FadeIn } from '../components/Transition';
 import { peerKey, seal } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
+import { friendly } from '../lib/errors';
 import { success, tap, warning } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
@@ -34,6 +35,7 @@ type Props = {
   myInterests: string[];
   incoming: IncomingRequest[];
   keys: MyKeys | null;
+  onOpenChat: (requestId: string) => void;
   onIncomingChanged: () => void;
   onClose: () => void;
   onLeft: () => void;
@@ -43,15 +45,7 @@ const POLL_MS = 10_000;
 const PAD = 16;
 const GAP = 12;
 
-function requestError(msg: string): string {
-  if (msg.includes('zaten istek')) return 'Bu kişiye bu kafede zaten istek gönderdin.';
-  if (msg.includes('aktif olmalisiniz')) return 'İkiniz de şu an bu kafede olmalısınız.';
-  if (msg.includes('cok fazla istek')) return 'Saatte en fazla 20 istek gönderebilirsin, biraz sonra tekrar dene.';
-  if (msg.includes('gonderilemez')) return 'Bu kişiye istek gönderilemiyor.';
-  return msg;
-}
-
-export default function VenueScreen({ active, userId, myInterests, incoming, keys, onIncomingChanged, onClose, onLeft }: Props) {
+export default function VenueScreen({ active, userId, myInterests, incoming, keys, onOpenChat, onIncomingChanged, onClose, onLeft }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -74,7 +68,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
       const { error } = await supabase.rpc('check_out');
       if (error) {
         leaving.current = false;
-        Alert.alert('Hata', error.message);
+        Alert.alert('Check-out yapılamadı', friendly(error));
         return;
       }
       if (silent) Alert.alert('Kafeden ayrıldın', 'Check-out otomatik yapıldı, artık kimse seni görmüyor.');
@@ -141,7 +135,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
     setSending(false);
     if (error) {
       warning();
-      Alert.alert('İstek gönderilemedi', requestError(error.message));
+      Alert.alert('İstek gönderilemedi', friendly(error));
       return;
     }
     success();
@@ -156,16 +150,20 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
   async function respond(r: IncomingRequest, accept: boolean) {
     const { error } = await supabase.rpc('respond_meet_request', { p_request: r.request_id, p_accept: accept });
     if (error) {
-      Alert.alert('Hata', error.message);
+      warning();
+      Alert.alert('Yanıtlanamadı', friendly(error));
       return;
     }
     if (accept) {
       success();
-      Alert.alert('Kabul ettin', `${r.display_name} ile şifreli sohbetiniz Mesajlar sekmesinde açıldı.`);
+      Alert.alert('Tanıştınız', `${r.display_name} ile sohbetiniz açıldı.`, [
+        { text: 'Sonra', style: 'cancel' },
+        { text: 'Sohbete git', onPress: () => onOpenChat(r.request_id) },
+      ]);
     } else {
       tap();
     }
-    onIncomingChanged();
+    await onIncomingChanged();
     refresh();
   }
 
@@ -176,7 +174,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('blocks').insert({ blocker: userId, blocked: p.user_id });
-          if (error) Alert.alert('Hata', error.message);
+          if (error) Alert.alert('Engellenemedi', friendly(error));
           else {
             setSelectedId(null);
             refresh();
@@ -191,7 +189,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
               text: reason,
               onPress: async () => {
                 const { error } = await supabase.from('reports').insert({ reporter: userId, reported: p.user_id, reason });
-                Alert.alert(error ? 'Hata' : 'Teşekkürler', error ? error.message : 'Şikayetin alındı.');
+                Alert.alert(error ? 'Gönderilemedi' : 'Teşekkürler', error ? friendly(error) : 'Bildirimin bize ulaştı, en kısa sürede inceleyeceğiz.');
               },
             })),
             { text: 'Vazgeç', style: 'cancel' as const },

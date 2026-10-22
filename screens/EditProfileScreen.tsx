@@ -79,7 +79,7 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
       setError(`En az ${MIN_INTERESTS} ilgi alanı seç.`);
       return;
     }
-    const contact = parseContact(phone, insta, true);
+    const contact = parseContact(phone, insta, false);
     const links = parseLinks(tiktok, xHandle, linkedin);
     if (contact.error || links.error) {
       setError(contact.error ?? links.error);

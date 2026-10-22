@@ -6,6 +6,7 @@ import ContactSheet from '../components/ContactSheet';
 import { FadeIn } from '../components/Transition';
 import { MAX_MESSAGE, open, peerKey, safetyCode, seal } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
+import { friendly } from '../lib/errors';
 import { impact, tap, warning } from '../lib/haptics';
 import { useKeyboardHeight } from '../lib/keyboard';
 import { useInsets } from '../lib/layout';
@@ -58,7 +59,7 @@ function errText(msg: string) {
   if (msg.includes('send_chat_message') || msg.includes('schema cache')) {
     return 'Veritabanı güncellemesi (011_sifreli_sohbet.sql) henüz çalıştırılmamış.';
   }
-  return 'Mesaj gönderilemedi. Bağlantını kontrol edip tekrar dene.';
+  return friendly(msg, 'Mesaj gönderilemedi. Bağlantını kontrol edip tekrar dene.');
 }
 
 // Uçtan uca şifreli sohbet. Mesajlar telefonda şifrelenir/açılır; sunucu sadece şifreli metni görür.
@@ -217,7 +218,7 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('blocks').insert({ blocker: userId, blocked: conn.other_id });
-          if (error) Alert.alert('Hata', error.message);
+          if (error) Alert.alert('Engellenemedi', friendly(error));
           else {
             setInfo(false);
             onBlocked();

@@ -11,7 +11,7 @@ import type { CafeLayout } from './cafeLayout';
 // {type:'notice', message}, {type:'error', message}.
 // Uygulamadan çağrılanlar: window.applyScene(layout, people), window.analyzePhotos([dataUrl]).
 
-export const CAFE_BG = '#081028';
+export const CAFE_BG = '#050A18';
 
 const THREE_VERSION = '0.180.0';
 const CDN = `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}`;

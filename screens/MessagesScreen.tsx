@@ -5,6 +5,7 @@ import Avatar from '../components/Avatar';
 import { FadeIn } from '../components/Transition';
 import { open } from '../lib/e2ee';
 import type { MyKeys } from '../lib/e2ee';
+import { friendly } from '../lib/errors';
 import { success, tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
@@ -75,7 +76,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
       setBusyId(null);
       if (error) {
         warning();
-        Alert.alert('Hata', error.message);
+        Alert.alert('Yanıtlanamadı', friendly(error));
         return;
       }
       if (accept) success();
@@ -105,7 +106,7 @@ export default function MessagesScreen({ connections, heads, keys, onChanged, on
           setBusyId(null);
           if (error) {
             warning();
-            Alert.alert('Hata', error.message);
+            Alert.alert('Geri çekilemedi', friendly(error));
             return;
           }
           tap();

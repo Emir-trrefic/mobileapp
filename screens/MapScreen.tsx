@@ -26,7 +26,8 @@ import AnimatedButton from '../components/AnimatedButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
 import { distanceMeters } from '../lib/geo';
-import { success, tap } from '../lib/haptics';
+import { friendly } from '../lib/errors';
+import { success, tap, warning } from '../lib/haptics';
 import { useGps } from '../lib/location';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { supabase } from '../lib/supabase';
@@ -232,7 +233,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
     const { data, error } = await supabase.rpc('venues_nearby', { p_lat: lat, p_lng: lng, p_max_m: 2500 });
     if (error) {
-      Alert.alert('Kafeler alınamadı', error.message);
+      Alert.alert('Kafeler alınamadı', friendly(error));
       return;
     }
     anchor.current = { lat, lng };
@@ -435,6 +436,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
 
   async function checkIn(v: Venue) {
     // Check-in anında taze ve yeterince doğru bir GPS ölçümü alınır; sunucu mesafeyi kendisi tekrar doğrular.
+    if (busyVenue) return; // çift dokunuşta iki istek gitmesin
     setBusyVenue(v.id);
     try {
       const f = await gps.fresh();
@@ -444,14 +446,18 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
         p_lng: f.lng,
         p_accuracy: f.accuracy,
       });
-      if (error) Alert.alert('Check-in yapılamadı', error.message);
+      if (error) {
+        warning();
+        Alert.alert('Check-in yapılamadı', friendly(error));
+      }
       else {
         success();
         setSceneVenue(null);
         onCheckedIn();
       }
     } catch (e) {
-      Alert.alert('Konum doğrulanamadı', e instanceof Error ? e.message : String(e));
+      warning();
+      Alert.alert('Konum alınamadı', friendly(e, 'Konumun doğrulanamadı. Konum izninin açık olduğundan emin olup tekrar dene.'));
     } finally {
       setBusyVenue(null);
     }

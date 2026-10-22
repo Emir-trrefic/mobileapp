@@ -30,7 +30,7 @@ import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
 type Mode = 'login' | 'signup' | 'verify' | 'forgot' | 'reset';
-type Props = { initialMode: 'login' | 'signup'; onBack: () => void };
+type Props = { initialMode: 'login' | 'signup'; onBack: () => void; onLegal: (k: 'kosullar' | 'aydinlatma') => void };
 
 const RESEND_SECONDS = 60;
 const MAX_FAILS = 5; // üst üste bu kadar hatalı girişte bekleme süresi başlar
@@ -40,7 +40,7 @@ const SCORE_LABELS = ['Çok zayıf', 'Zayıf', 'Orta', 'İyi', 'Güçlü'];
 // Kayıt / giriş / e-posta doğrulama / şifre sıfırlama. Animasyonlar hafif; form her zaman anında çizilir.
 // Güvenlik: şifre kuralları, onay kutusu, 6 haneli e-posta kodu, kod tekrar gönderme bekleme süresi,
 // hatalı girişte bekleme, hesabın var olup olmadığını ele vermeyen mesajlar. Sunucu her şeyi tekrar denetler.
-export default function AuthScreen({ initialMode, onBack }: Props) {
+export default function AuthScreen({ initialMode, onBack, onLegal }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -383,7 +383,15 @@ export default function AuthScreen({ initialMode, onBack }: Props) {
                 >
                   <Ionicons name={consent ? 'checkbox' : 'square-outline'} size={22} color={consent ? c.accentLight : c.muted} />
                   <Text style={styles.consentText}>
-                    18 yaşından büyüğüm. Kullanım Koşulları’nı ve Gizlilik Politikası’nı okudum, kabul ediyorum.
+                    18 yaşından büyüğüm,{' '}
+                    <Text style={styles.consentLink} onPress={() => onLegal('kosullar')}>
+                      Kullanım Koşulları
+                    </Text>
+                    ’nı kabul ediyorum.{' '}
+                    <Text style={styles.consentLink} onPress={() => onLegal('aydinlatma')}>
+                      KVKK Aydınlatma Metni
+                    </Text>
+                    ’ni okudum.
                   </Text>
                 </Pressable>
               </>
@@ -491,6 +499,7 @@ const makeStyles = (c: Palette) =>
     tip: { color: c.muted, fontSize: 12.5, lineHeight: 18, marginTop: 4, marginBottom: 16 },
     consent: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 2, marginBottom: 16, paddingVertical: 4 },
     consentText: { color: c.text, fontSize: 13.5, lineHeight: 19, flex: 1 },
+    consentLink: { color: c.accentLight, fontWeight: '700' },
     error: { color: c.danger, fontSize: 14, lineHeight: 20, marginBottom: 12 },
     notice: { color: c.success, fontSize: 14, lineHeight: 20, marginBottom: 12 },
     cta: { marginTop: 4 },

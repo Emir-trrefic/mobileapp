@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const BRAND: string | null = null;
 
 // Ekranlarda gösterilen sürüm (giriş ve profil ekranı buradan okur).
-export const APP_VERSION = '0.17';
+export const APP_VERSION = '0.18';
 
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];
@@ -46,33 +46,36 @@ export type Palette = {
   blobs: Grad2; // süzülen renk lekeleri
 };
 
-// Koyu tema: lacivert tonlu siyah, beyaz metin. Tek vurgu: açık gök mavisi/lacivert tonları.
+// Koyu tema: derin gece laciverti zemin (siyaha yakın ama soğuk lacivert tonlu), beyaz metin.
+// Yüzeyler yükseldikçe bir ton açılır; vurgu açık lacivert-mavi.
+export const NAVY = '#050A18';
+
 export const darkColors: Palette = {
   scheme: 'dark',
-  bg: '#081028',
-  card: '#0E1A3A',
-  cardFocus: '#132144',
-  card2: '#17264F',
-  border: '#243561',
-  line: 'rgba(255,255,255,0.04)',
-  text: '#F4F6FB',
-  muted: '#93A0BF',
-  accent: '#9DB4FF',
-  accentLight: '#B7C8FF',
-  accentSoft: 'rgba(157,180,255,0.16)',
+  bg: NAVY,
+  card: '#0A1328',
+  cardFocus: '#0E1832',
+  card2: '#121E3B',
+  border: '#1C2A4D',
+  line: 'rgba(255,255,255,0.035)',
+  text: '#F2F5FB',
+  muted: '#8A97B6',
+  accent: '#A9BEFF',
+  accentLight: '#BCCBFF',
+  accentSoft: 'rgba(169,190,255,0.14)',
   pink: '#3D6BFF', // ikinci vurgu: kobalt (bildirim, istek)
   pinkSoft: 'rgba(61,107,255,0.20)',
   success: '#3DD6A0',
-  successSoft: 'rgba(61,214,160,0.16)',
+  successSoft: 'rgba(61,214,160,0.15)',
   warn: '#FBBF24',
   danger: '#FF7A8A',
-  dangerSoft: 'rgba(255,122,138,0.15)',
-  glass: 'rgba(14,26,58,0.97)',
-  scrim: 'rgba(4,7,16,0.62)',
+  dangerSoft: 'rgba(255,122,138,0.14)',
+  glass: 'rgba(10,19,40,0.97)',
+  scrim: 'rgba(2,5,12,0.66)',
   shadow: '#000000',
-  shadowOpacity: 0.5,
-  gradient: ['#1C3F9E', '#12296B'],
-  hero: ['#081028', '#081028', '#0A1331'],
+  shadowOpacity: 0.55,
+  gradient: ['#1A3A8F', '#0E2160'],
+  hero: [NAVY, NAVY, '#071029'],
   blobs: ['rgba(61,107,255,0)', 'rgba(61,107,255,0)'],
 };
 

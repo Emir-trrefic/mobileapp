@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import AnimatedButton from './components/AnimatedButton';
 import Backdrop from './components/Backdrop';
 import ErrorBoundary from './components/ErrorBoundary';
+import LegalSheet from './components/LegalSheet';
+import OfflineBanner from './components/OfflineBanner';
+import SwipeBack from './components/SwipeBack';
 import TabBar from './components/TabBar';
 import type { TabKey } from './components/TabBar';
 import SplashIntro from './components/SplashIntro';
@@ -12,12 +16,16 @@ import Warmup3D from './components/Warmup3D';
 import { Pane, Screen } from './components/Transition';
 import { ensureMyKeys, publishMyKey } from './lib/e2ee';
 import type { MyKeys } from './lib/e2ee';
+import { AYDINLATMA, KOSULLAR, LEGAL_VERSION } from './lib/legal';
+import type { LegalDoc } from './lib/legal';
 import { LocationProvider, useGps } from './lib/location';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
 import type { ActiveCheckin, ChatHead, Connection, IncomingRequest, Profile } from './lib/types';
+import IntroScreen from './screens/IntroScreen';
+import PhoneVerifyScreen from './screens/PhoneVerifyScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -28,6 +36,11 @@ import ChatScreen from './screens/ChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 type Entry = 'welcome' | 'auth';
+
+// Hesap durumu (012): doğrulanmış telefon, SMS zorunluluğu, onaylanan metin sürümleri.
+type AccountStatus = { phone: string | null; phone_verified: boolean; require_phone: boolean; consents: Record<string, string> };
+
+const INTRO_KEY = 'denk.intro.v1';
 
 // Uygulama açıkken konumu sunucuya bildirir (dakikada bir ve ön plana dönünce).
 // Sunucu kafeden uzaklaştığını görürse check-in'i bitirir; 30 dk haber gelmezse kişi görünmez olur.
@@ -102,6 +115,21 @@ function AppShell() {
   const [immersive, setImmersive] = useState(false); // haritada 3D kafe açık
   const [intro, setIntro] = useState(true); // açılış animasyonu (her açılışta bir kez)
   const [revealed, setRevealed] = useState(false); // perde açılınca ekranlar çizilmeye başlar
+  const [introSeen, setIntroSeen] = useState<boolean | null>(null); // ilk açılış tanıtım kartları
+  const [account, setAccount] = useState<AccountStatus | null>(null);
+  const [phoneOpen, setPhoneOpen] = useState(false); // profil > telefon doğrula
+  const [legal, setLegal] = useState<LegalDoc | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(INTRO_KEY)
+      .then((v) => setIntroSeen(v === '1'))
+      .catch(() => setIntroSeen(true));
+  }, []);
+  const finishIntro = useCallback(() => {
+    setIntroSeen(true);
+    AsyncStorage.setItem(INTRO_KEY, '1').catch(() => {});
+  }, []);
 
   // Sekme geçiş yönü: sağdaki sekmeye geçince sağdan, soldakine geçince soldan kayar.
   const TAB_ORDER: Record<TabKey, number> = { map: 0, messages: 1, profile: 2 };
@@ -170,6 +198,8 @@ function AppShell() {
       setHeads([]);
       setKeys(null);
       setChatId(null);
+      setAccount(null);
+      setPhoneOpen(false);
       setVenueOpen(false);
       setTab('map');
       setEntry('welcome');
@@ -182,9 +212,30 @@ function AppShell() {
     if (!chats.error) setHeads((chats.data ?? []) as ChatHead[]);
   }, []);
 
+  // Hesap durumu: 012 çalıştırılmadıysa null kalır ve kapılar (SMS, onay) devreye girmez.
+  const loadAccount = useCallback(async () => {
+    const { data, error } = await supabase.rpc('my_account_status');
+    const row = (data as AccountStatus[] | null)?.[0];
+    if (!error && row) setAccount({ ...row, consents: row.consents ?? {} });
+  }, []);
+
+  const acceptTerms = useCallback(async () => {
+    setConsentBusy(true);
+    await Promise.all([
+      supabase.rpc('record_consent', { p_kind: 'kosullar', p_version: LEGAL_VERSION.kosullar }),
+      supabase.rpc('record_consent', { p_kind: 'aydinlatma', p_version: LEGAL_VERSION.aydinlatma }),
+    ]);
+    await loadAccount();
+    setConsentBusy(false);
+  }, [loadAccount]);
+
   // Uçtan uca şifreleme anahtarları: bu cihazda yoksa üretilir, açık anahtar sunucuya yazılır.
   const userId = session?.user.id ?? null;
   const hasProfile = Boolean(profile?.birth_year);
+  useEffect(() => {
+    if (userId && hasProfile) loadAccount();
+  }, [userId, hasProfile, loadAccount]);
+
   useEffect(() => {
     if (!userId || !hasProfile) return;
     let alive = true;
@@ -244,6 +295,21 @@ function AppShell() {
     setChatSeed(x);
     setChatId(x.request_id);
   }, []);
+  // Uyarı penceresinden açılırken eski listeye bakılmasın diye güncel liste ref'ten okunur.
+  const connRef = useRef(connections);
+  connRef.current = connections;
+  const openChatById = useCallback(
+    async (requestId: string) => {
+      let x = connRef.current.find((k) => k.request_id === requestId);
+      if (!x) {
+        const { data } = await supabase.rpc('my_connections');
+        x = ((data ?? []) as Connection[]).find((k) => k.request_id === requestId);
+      }
+      // Kafe ekranı açık kalır: sohbetten geri dönünce kafeye dönülür.
+      if (x) openChat({ ...x, status: 'accepted' });
+    },
+    [openChat],
+  );
 
   // Check-in kalmadıysa kafe ekranı kapanır.
   useEffect(() => {
@@ -268,12 +334,23 @@ function AppShell() {
       );
     }
 
-    if (booting || (session && !profileLoaded)) {
+    if (booting || introSeen === null || (session && !profileLoaded)) {
       return (
         <View style={styles.center}>
           <StatusBar style={barStyle} />
           <Backdrop />
           <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      );
+    }
+
+    if (!session && introSeen === false) {
+      return (
+        <View style={styles.root}>
+          <StatusBar style={barStyle} />
+          <Screen key="intro" from={1}>
+            <IntroScreen onDone={finishIntro} />
+          </Screen>
         </View>
       );
     }
@@ -285,6 +362,7 @@ function AppShell() {
           {entry === 'welcome' ? (
             <Screen key="welcome" from={-1}>
             <WelcomeScreen
+              onLegal={(k) => setLegal(k === 'kosullar' ? KOSULLAR : AYDINLATMA)}
               onStart={() => {
                 setAuthMode('signup');
                 setEntry('auth');
@@ -299,7 +377,12 @@ function AppShell() {
             </Screen>
           ) : (
             <Screen key={`auth-${authMode}`} from={1}>
-              <AuthScreen key={authMode} initialMode={authMode} onBack={() => setEntry('welcome')} />
+              <AuthScreen
+                key={authMode}
+                initialMode={authMode}
+                onBack={() => setEntry('welcome')}
+                onLegal={(k) => setLegal(k === 'kosullar' ? KOSULLAR : AYDINLATMA)}
+              />
             </Screen>
           )}
         </View>
@@ -336,13 +419,32 @@ function AppShell() {
             <OnboardingScreen
               userId={session.user.id}
               initial={profile}
-              onDone={(p) => setProfile(p)}
+              onDone={(p) => {
+                setProfile(p);
+                // Kayıtta kabul edilen metinlerin hangi sürümü olduğu sunucuda saklanır (KVKK ispat).
+                acceptTerms();
+              }}
               onSignOut={() => supabase.auth.signOut()}
             />
           </Screen>
         </View>
       );
     }
+
+    // SMS doğrulama zorunluysa (app_settings.require_phone) doğrulanmadan uygulamaya girilmez.
+    if (account?.require_phone && !account.phone_verified) {
+      return (
+        <View style={styles.root}>
+          <StatusBar style={barStyle} />
+          <Screen key="phone" from={1}>
+            <PhoneVerifyScreen required onDone={loadAccount} onSignOut={() => supabase.auth.signOut()} />
+          </Screen>
+        </View>
+      );
+    }
+
+    const needsConsent =
+      account !== null && account.consents.kosullar !== LEGAL_VERSION.kosullar;
 
     return (
       <View style={styles.root}>
@@ -377,6 +479,9 @@ function AppShell() {
         <Pane visible={tab === 'profile'} from={tabFrom}>
           <ProfileScreen
             profile={profile}
+            phoneVerified={account?.phone_verified ?? null}
+            onVerifyPhone={() => setPhoneOpen(true)}
+            onLegal={(k) => setLegal(k === 'kosullar' ? KOSULLAR : AYDINLATMA)}
             email={session?.user.email ?? ''}
             onSaved={(p) => setProfile(p)}
             onSignOut={() => supabase.auth.signOut()}
@@ -384,8 +489,25 @@ function AppShell() {
         </Pane>
 
         {/* Şifreli sohbet: her şeyin üstünde tam ekran */}
-        {chatConn ? (
+        {phoneOpen ? (
           <Pane visible from={1}>
+            <PhoneVerifyScreen
+              required={false}
+              onDone={() => {
+                setPhoneOpen(false);
+                loadAccount();
+              }}
+              onLater={() => setPhoneOpen(false)}
+            />
+          </Pane>
+        ) : chatConn ? (
+          <Pane visible from={1}>
+            <SwipeBack
+              onBack={() => {
+                setChatId(null);
+                loadConnections();
+              }}
+            >
             <ChatScreen
               key={chatConn.request_id}
               conn={chatConn}
@@ -401,15 +523,18 @@ function AppShell() {
                 loadConnections();
               }}
             />
+            </SwipeBack>
           </Pane>
         ) : venueOpen && active ? (
           <Pane visible from={1}>
+            <SwipeBack onBack={() => setVenueOpen(false)}>
             <VenueScreen
               active={active}
               userId={session.user.id}
               myInterests={profile.interests}
               incoming={incoming}
               keys={keys}
+              onOpenChat={openChatById}
               onIncomingChanged={loadConnections}
               onClose={() => setVenueOpen(false)}
               onLeft={() => {
@@ -418,10 +543,35 @@ function AppShell() {
                 setTab('map');
               }}
             />
+            </SwipeBack>
           </Pane>
         ) : immersive && tab === 'map' ? null : (
           <TabBar tab={tab} onChange={setTab} badge={pendingIncoming.length + unread} live={Boolean(active)} />
         )}
+
+        {/* Koşullar güncellendiyse ya da daha önce onay kaydı yoksa bir kez sorulur */}
+        <Modal visible={needsConsent && !legal} transparent animationType="fade">
+          <View style={styles.consentScrim}>
+            <View style={styles.consentCard}>
+              <Text style={styles.consentTitle}>Koşullarımızı güncelledik</Text>
+              <Text style={styles.consentText}>
+                Devam etmeden önce{' '}
+                <Text style={styles.consentLink} onPress={() => setLegal(KOSULLAR)}>
+                  Kullanım Koşulları
+                </Text>
+                'nı kabul etmeni ve{' '}
+                <Text style={styles.consentLink} onPress={() => setLegal(AYDINLATMA)}>
+                  KVKK Aydınlatma Metni
+                </Text>
+                'ni okumanı rica ediyoruz.
+              </Text>
+              <AnimatedButton title="Okudum, kabul ediyorum" onPress={acceptTerms} loading={consentBusy} noEnter style={{ marginTop: 18 }} />
+              <Pressable onPress={() => supabase.auth.signOut()} hitSlop={8} style={{ alignSelf: 'center', marginTop: 14 }}>
+                <Text style={styles.consentMuted}>Çıkış yap</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   })();
@@ -429,6 +579,8 @@ function AppShell() {
   return (
     <View style={styles.root}>
       {revealed ? screen : null}
+      {revealed ? <OfflineBanner /> : null}
+      <LegalSheet doc={legal} onClose={() => setLegal(null)} />
       {intro ? <SplashIntro onReveal={() => setRevealed(true)} onDone={() => setIntro(false)} /> : null}
     </View>
   );
@@ -440,4 +592,10 @@ const makeStyles = (c: Palette) =>
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, backgroundColor: c.bg },
     msg: { color: c.muted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
     errTitle: { color: c.text, fontSize: 22, fontWeight: '800', marginBottom: 10 },
+    consentScrim: { flex: 1, backgroundColor: 'rgba(2,5,12,0.6)', justifyContent: 'center', padding: 24 },
+    consentCard: { backgroundColor: c.card, borderRadius: 24, padding: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
+    consentTitle: { color: c.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
+    consentText: { color: c.muted, fontSize: 14.5, lineHeight: 22, marginTop: 10 },
+    consentLink: { color: c.accentLight, fontWeight: '700' },
+    consentMuted: { color: c.muted, fontSize: 14, fontWeight: '600' },
   });

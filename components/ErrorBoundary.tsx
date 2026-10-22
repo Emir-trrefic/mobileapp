@@ -63,11 +63,11 @@ export default class ErrorBoundary extends Component<Props, State> {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#081028', padding: 24, paddingTop: 80 },
+  root: { flex: 1, backgroundColor: '#050A18', padding: 24, paddingTop: 80 },
   title: { color: '#F4F6FB', fontSize: 24, fontWeight: '800', marginBottom: 16 },
-  box: { flex: 1, backgroundColor: '#0E1A3A', borderRadius: 14, marginBottom: 16 },
+  box: { flex: 1, backgroundColor: '#0A1328', borderRadius: 14, marginBottom: 16 },
   msg: { color: '#FF7A8A', fontSize: 15, lineHeight: 21, fontWeight: '600' },
   stack: { color: '#93A0BF', fontSize: 12, lineHeight: 18, marginTop: 12 },
   btn: { height: 52, borderRadius: 26, backgroundColor: '#F4F6FB', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  btnText: { color: '#081028', fontSize: 16, fontWeight: '700' },
+  btnText: { color: '#050A18', fontSize: 16, fontWeight: '700' },
 });
