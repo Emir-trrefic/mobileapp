@@ -25,7 +25,7 @@ import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { forgetMyKeys } from '../lib/e2ee';
 import { supabase } from '../lib/supabase';
-import { BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
+import { APP_VERSION, BRAND, setThemePref, useColors, useStyles, useThemePref } from '../lib/theme';
 import type { Palette, ThemePref } from '../lib/theme';
 import type { Profile } from '../lib/types';
 import EditProfileScreen from './EditProfileScreen';
@@ -297,7 +297,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut }: Pr
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm 0.17</Text>
+        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm {APP_VERSION}</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

@@ -5,6 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Uygulamanın adı henüz belli değil; karar verilince buraya yazılır, isim gösteren her yer buradan okur.
 export const BRAND: string | null = null;
 
+// Ekranlarda gösterilen sürüm (giriş ve profil ekranı buradan okur).
+export const APP_VERSION = '0.17';
+
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];
 

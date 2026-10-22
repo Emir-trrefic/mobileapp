@@ -4,7 +4,7 @@ import Logo from '../components/Logo';
 import { tap } from '../lib/haptics';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
-import { BRAND, useColors, useStyles } from '../lib/theme';
+import { APP_VERSION, BRAND, useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
 // Instagram / X girişi gibi: ortada logo, altta iki net buton. Başka hiçbir şey yok.
@@ -77,7 +77,7 @@ export default function WelcomeScreen({ onStart, onLogin, onQuick, quickBusy }: 
             )}
           </Pressable>
         ) : null}
-        <Text style={styles.version}>Sürüm 0.15 · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
+        <Text style={styles.version}>Sürüm {APP_VERSION} · {c.scheme === 'dark' ? 'koyu' : 'açık'} tema</Text>
       </View>
     </View>
   );
