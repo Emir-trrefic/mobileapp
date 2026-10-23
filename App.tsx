@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { PlayfairDisplay_600SemiBold_Italic } from '@expo-google-fonts/playfair-display/600SemiBold_Italic';
 import type { Session } from '@supabase/supabase-js';
 import AnimatedButton from './components/AnimatedButton';
 import Backdrop from './components/Backdrop';
@@ -38,7 +40,7 @@ import {
 import type { NotifData, PermissionState } from './lib/notifications';
 import { respondRequest } from './lib/requests';
 import { supabase, supabaseConfigured } from './lib/supabase';
-import { useColors, useStyles } from './lib/theme';
+import { NAVY, useColors, useStyles } from './lib/theme';
 import type { Palette } from './lib/theme';
 import { PROFILE_COLUMNS, PROFILE_COLUMNS_BASE } from './lib/types';
 import type { ActiveCheckin, ChatHead, Connection, Profile } from './lib/types';
@@ -104,6 +106,9 @@ function LocationHeartbeat({ active, onEnded }: { active: ActiveCheckin | null; 
 }
 
 export default function App() {
+  // Marka yazı tipi (açılış animasyonu ve logo) yüklenmeden ilk kare çizilmez; yerel dosya, anında yüklenir.
+  const [fontsReady, fontError] = useFonts({ PlayfairDisplay_600SemiBold_Italic });
+  if (!fontsReady && !fontError) return <View style={{ flex: 1, backgroundColor: NAVY }} />;
   return (
     <ErrorBoundary>
       <LocationProvider>
@@ -764,7 +769,8 @@ function AppShell() {
     <View style={styles.root}>
       {revealed ? screen : null}
       {revealed ? <OfflineBanner /> : null}
-      <SecurityLayer active={Boolean(session && profile?.birth_year)} />
+      {/* Kilit, açılış animasyonu bitip uygulama göründüğü anda devreye girer */}
+      <SecurityLayer active={revealed && Boolean(session && profile?.birth_year)} />
       <LegalSheet doc={legal} onClose={() => setLegal(null)} />
       {intro ? <SplashIntro onReveal={() => setRevealed(true)} onDone={() => setIntro(false)} /> : null}
     </View>

@@ -387,7 +387,7 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut, phon
           />
         </Group>
 
-        <Text style={styles.footer}>{BRAND ? `${BRAND} · ` : ''}Sürüm {APP_VERSION}</Text>
+        <Text style={styles.footer}>{BRAND} · Sürüm {APP_VERSION}</Text>
       </Animated.ScrollView>
 
       {/* Kaydırınca beliren sabit üst çubuk: içerik saatin/çentiğin altına girmez */}

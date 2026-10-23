@@ -2,11 +2,14 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Uygulamanın adı henüz belli değil; karar verilince buraya yazılır, isim gösteren her yer buradan okur.
-export const BRAND: string | null = null;
+// Uygulamanın adı; isim gösteren her yer buradan okur.
+export const BRAND = 'rast';
+// Marka yazı tipi (App.tsx'te yüklenir) ve noktanın rengi.
+export const BRAND_FONT = 'PlayfairDisplay_600SemiBold_Italic';
+export const ACCENT_DOT = '#3D6BFF';
 
 // Ekranlarda gösterilen sürüm (giriş ve profil ekranı buradan okur).
-export const APP_VERSION = '0.20';
+export const APP_VERSION = '0.21';
 
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];

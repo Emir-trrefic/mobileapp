@@ -48,7 +48,7 @@ export async function lockEnabled(): Promise<boolean> {
   }
 }
 
-export async function unlock(reason = 'denk’i açmak için doğrula'): Promise<boolean> {
+export async function unlock(reason = 'rast’ı açmak için doğrula'): Promise<boolean> {
   authenticating = true;
   try {
     const r = await LocalAuthentication.authenticateAsync({

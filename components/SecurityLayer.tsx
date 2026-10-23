@@ -3,6 +3,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ScreenCapture from 'expo-screen-capture';
 import { LOCK_AFTER_MS, isAuthenticating, lockEnabled, lockMethodName, onLockChange, unlock } from '../lib/security/appLock';
+import { Wordmark } from './Brand';
 import { useInsets } from '../lib/layout';
 import { NAVY } from '../lib/theme';
 
@@ -75,7 +76,7 @@ export default function SecurityLayer({ active }: { active: boolean }) {
           <View style={styles.lockIcon}>
             <Ionicons name="lock-closed" size={28} color="#fff" />
           </View>
-          <Text style={styles.brand}>denk</Text>
+          <Wordmark size={46} />
           <Text style={styles.text}>Uygulama kilitli</Text>
         </View>
         <Pressable style={styles.btn} onPress={tryUnlock}>
@@ -89,7 +90,7 @@ export default function SecurityLayer({ active }: { active: boolean }) {
     return (
       <View style={styles.cover} pointerEvents="none">
         <View style={styles.center}>
-          <Text style={styles.brand}>denk</Text>
+          <Wordmark size={46} />
         </View>
       </View>
     );
@@ -101,7 +102,6 @@ const styles = StyleSheet.create({
   cover: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, elevation: 200, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'flex-end' },
   center: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
   lockIcon: { width: 64, height: 64, borderRadius: 22, backgroundColor: '#1A3A8F', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  brand: { color: '#F2F5FB', fontSize: 40, fontWeight: '800', letterSpacing: -1.4 },
   text: { color: '#8A97B6', fontSize: 15, marginTop: 8 },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F5FB', borderRadius: 16, paddingVertical: 15, paddingHorizontal: 26 },
   btnText: { color: NAVY, fontSize: 16, fontWeight: '800' },

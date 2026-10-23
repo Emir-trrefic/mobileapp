@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
-import Logo from '../components/Logo';
+import { Mark, Wordmark } from '../components/Brand';
 import { tap } from '../lib/haptics';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
-import { APP_VERSION, BRAND, NAVY, useColors, useStyles } from '../lib/theme';
+import { APP_VERSION, useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
 // Instagram / X girişi gibi: ortada logo, altta iki net buton. Başka hiçbir şey yok.
@@ -51,12 +51,10 @@ export default function WelcomeScreen({ onStart, onLogin, onLegal, onQuick, quic
             transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
           }}
         >
-          <View style={styles.mark}>
-            <Logo size={74} />
-          </View>
-          {BRAND ? <Text style={styles.brand}>{BRAND}</Text> : null}
+          <Mark size={96} />
+          <Wordmark size={46} color={c.text} style={{ marginTop: 20 }} />
         </Animated.View>
-        <Animated.Text style={[styles.tagline, !BRAND && styles.headline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
+        <Animated.Text style={[styles.tagline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
@@ -101,10 +99,7 @@ const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 40 },
-    mark: { width: 104, height: 104, borderRadius: 30, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center' },
-    brand: { color: c.text, fontSize: 44, fontWeight: '800', letterSpacing: -1.2, marginTop: 22 },
     tagline: { color: c.muted, fontSize: 16, marginTop: 10 },
-    headline: { color: c.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 26 },
     bottom: { paddingHorizontal: 28 },
     quick: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
     quickText: { color: c.accentLight, fontSize: 15, fontWeight: '700' },

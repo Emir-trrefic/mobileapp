@@ -181,3 +181,9 @@ Sürüm 0.20 (cihaz ve ağ güvenliği, ayrıntı docs/GUVENLIK.md > Cihaz ve a�
 - Profil > Güvenlik: diğer cihazlardaki oturumları kapat, cihaz güvenliği durumu.
 - Sertifika sabitleme (Supabase zinciri + yedek kökler) ve root/jailbreak tespiti; ikisi de Expo Go'da kapalı, kendi derlemede açılır. Android R8 açıldı.
 
+Sürüm 0.21 (isim: rast):
+- Uygulamanın adı **rast** (`lib/theme.ts` BRAND, app.json name). Marka yazı tipi Playfair Display SemiBold Italic (SIL OFL, @expo-google-fonts/playfair-display), App.tsx'te yüklenir.
+- `components/Brand.tsx`: `Wordmark` ("rast." yazısı) ve `Mark` (lacivert karede "r."). Giriş ekranı, tanıtım kartları, kilit ekranı ve açılış animasyonu bunları kullanır.
+- Simge, açılış ekranı ve Android simgesi: italik "r" + mavi nokta (assets/).
+- Uygulama kilidi açılış animasyonu bittikten sonra devreye girer.
+

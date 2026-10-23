@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { NAVY } from '../lib/theme';
+import { BRAND_FONT, NAVY } from '../lib/theme';
 
-// Uygulama açılışı: derin lacivert zeminde sadece "denk" yazısı. Harfler sırayla aşağıdan yükselip
-// netleşir, "e" ile "n" arasında iki nokta birbirine yaklaşıp buluşur ("denk gelmek"), ardından
+// Uygulama açılışı: derin lacivert zeminde sadece "rast" yazısı (italik marka yazı tipi). Harfler sırayla
+// aşağıdan yükselip netleşir, altta iki nokta birbirine yaklaşıp buluşur ("rastlamak"), ardından
 // yazı hafifçe büyüyüp kaybolurken uygulama alttan belirir.
 
-const WORD = ['d', 'e', 'n', 'k'];
+const WORD = ['r', 'a', 's', 't'];
 
 export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void; onDone: () => void }) {
   const letters = useRef(WORD.map(() => new Animated.Value(0))).current;
@@ -117,9 +117,9 @@ export default function SplashIntro({ onReveal, onDone }: { onReveal: () => void
 const styles = StyleSheet.create({
   root: { alignItems: 'center', justifyContent: 'center', zIndex: 100, elevation: 100, backgroundColor: NAVY },
   row: { flexDirection: 'row', alignItems: 'flex-end' },
-  letter: { color: '#F2F5FB', fontSize: 64, fontWeight: '800', letterSpacing: -2.4, marginHorizontal: 0.5 },
+  letter: { color: '#F2F5FB', fontSize: 72, fontFamily: BRAND_FONT, includeFontPadding: false },
   dots: { height: 20, width: 120, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   dot: { position: 'absolute', width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#F2F5FB' },
-  dotAccent: { backgroundColor: '#A9BEFF' },
-  halo: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#A9BEFF' },
+  dotAccent: { backgroundColor: '#3D6BFF' },
+  halo: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#3D6BFF' },
 });

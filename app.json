@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobileapp",
+    "name": "rast",
     "slug": "mobileapp",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -38,7 +38,8 @@
         {
           "faceIDPermission": "Uygulama kilidini açmak için Face ID kullanılır."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "backgroundColor": "#050A18",
     "splash": {

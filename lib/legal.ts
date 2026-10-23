@@ -25,7 +25,7 @@ export const AYDINLATMA: LegalDoc = {
   title: 'KVKK Aydınlatma Metni',
   updated: 'Ekim 2026',
   intro:
-    '6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında, denk uygulamasını kullanırken hangi verilerini neden işlediğimizi ve bu konudaki haklarını aşağıda bulabilirsin.',
+    '6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında, rast uygulamasını kullanırken hangi verilerini neden işlediğimizi ve bu konudaki haklarını aşağıda bulabilirsin.',
   sections: [
     {
       h: 'Veri sorumlusu',
@@ -94,7 +94,7 @@ export const KOSULLAR: LegalDoc = {
   key: 'kosullar',
   title: 'Kullanım Koşulları',
   updated: 'Ekim 2026',
-  intro: 'denk’i kullanarak aşağıdaki koşulları kabul etmiş olursun. Kısa tuttuk, lütfen oku.',
+  intro: 'rast’ı kullanarak aşağıdaki koşulları kabul etmiş olursun. Kısa tuttuk, lütfen oku.',
   sections: [
     {
       h: 'Kimler kullanabilir',
@@ -131,7 +131,7 @@ export const KOSULLAR: LegalDoc = {
     {
       h: 'Sorumluluk',
       p: [
-        'denk, kullanıcıları buluşturan bir araçtır. Kullanıcıların birbirine karşı davranışlarından ve uygulama dışındaki görüşmelerden kullanıcılar sorumludur. Hizmeti kesintisiz sunmaya çalışırız ancak bakım ve teknik sorunlar nedeniyle kesinti olabilir.',
+        'rast, kullanıcıları buluşturan bir araçtır. Kullanıcıların birbirine karşı davranışlarından ve uygulama dışındaki görüşmelerden kullanıcılar sorumludur. Hizmeti kesintisiz sunmaya çalışırız ancak bakım ve teknik sorunlar nedeniyle kesinti olabilir.',
         'Koşullar değişirse uygulama içinde haber veririz; değişiklikten sonra kullanmaya devam etmen yeni koşulları kabul ettiğin anlamına gelir.',
       ],
     },

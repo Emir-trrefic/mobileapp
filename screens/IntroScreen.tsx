@@ -4,6 +4,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, Vie
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
+import { Wordmark } from '../components/Brand';
 import { tap } from '../lib/haptics';
 import { useInsets } from '../lib/layout';
 import { useColors, useStyles } from '../lib/theme';
@@ -17,7 +18,7 @@ const SLIDES: Slide[] = [
   {
     key: 'meet',
     title: 'Aynı kafedekilerle tanış',
-    body: 'denk, aynı anda aynı kafede oturan insanları buluşturur. Seni sadece o an orada olanlar görür.',
+    body: 'rast, aynı anda aynı kafede oturan insanları buluşturur. Seni sadece o an orada olanlar görür.',
   },
   {
     key: 'checkin',
@@ -236,7 +237,7 @@ export default function IntroScreen({ onDone }: { onDone: () => void }) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.top}>
-        <Text style={styles.brand}>denk</Text>
+        <Wordmark size={26} color={c.text} />
         {!last ? (
           <Pressable
             hitSlop={12}
