@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ScreenCapture from 'expo-screen-capture';
-import { LOCK_AFTER_MS, isAuthenticating, lockEnabled, lockMethodName, onLockChange, unlock } from '../lib/security/appLock';
+import { LOCK_AFTER_MS, isAuthenticating, lockAvailable, lockEnabled, lockMethodName, onLockChange, unlock } from '../lib/security/appLock';
 import { Wordmark } from './Brand';
 import { useInsets } from '../lib/layout';
 import { NAVY } from '../lib/theme';
@@ -11,7 +11,7 @@ import { NAVY } from '../lib/theme';
 // - Gizlilik perdesi: uygulama arka plana geçerken içerik lacivert bir perdeyle kapanır; böylece uygulama
 //   değiştiricideki önizlemede mesajlar ve profiller görünmez (iOS'ta ayrıca sistem bulanıklığı açılır).
 // - Uygulama kilidi: açıksa açılışta ve 30 sn'den uzun arka plandan dönüşte Face ID / parmak izi istenir.
-export default function SecurityLayer({ active }: { active: boolean }) {
+export default function SecurityLayer({ active, onSignOut }: { active: boolean; onSignOut: () => void }) {
   const insets = useInsets();
   const [curtain, setCurtain] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -35,7 +35,9 @@ export default function SecurityLayer({ active }: { active: boolean }) {
       return;
     }
     lockMethodName().then(setMethod);
-    lockEnabled().then((on) => {
+    // Ayar açık olsa bile cihazda Face ID / parmak izi / şifre yoksa kilitlenmez (kullanıcı dışarıda kalmasın).
+    Promise.all([lockEnabled(), lockAvailable()]).then(([enabled, available]) => {
+      const on = enabled && available;
       lockOn.current = on;
       if (on) {
         setLocked(true);
@@ -83,6 +85,17 @@ export default function SecurityLayer({ active }: { active: boolean }) {
           <Ionicons name={method === 'Face ID' ? 'scan' : method === 'Parmak izi' ? 'finger-print' : 'keypad'} size={18} color={NAVY} />
           <Text style={styles.btnText}>{method} ile aç</Text>
         </Pressable>
+        {/* Doğrulama yapılamıyorsa: çıkış yapıp e-posta ve şifreyle yeniden girilebilir (kilit ayarı sıfırlanır). */}
+        <Pressable
+          style={styles.alt}
+          hitSlop={10}
+          onPress={() => {
+            setLocked(false);
+            onSignOut();
+          }}
+        >
+          <Text style={styles.altText}>Açamıyor musun? Çıkış yap</Text>
+        </Pressable>
       </View>
     );
   }
@@ -105,4 +118,6 @@ const styles = StyleSheet.create({
   text: { color: '#8A97B6', fontSize: 15, marginTop: 8 },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F5FB', borderRadius: 16, paddingVertical: 15, paddingHorizontal: 26 },
   btnText: { color: NAVY, fontSize: 16, fontWeight: '800' },
+  alt: { marginTop: 18, paddingVertical: 6 },
+  altText: { color: '#8A97B6', fontSize: 14, fontWeight: '600' },
 });

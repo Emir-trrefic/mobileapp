@@ -68,6 +68,12 @@ export async function unlock(reason = 'rast’ı açmak için doğrula'): Promis
   }
 }
 
+// Çıkış yapınca kilit ayarı sıfırlanır (bir sonraki hesap varsayılan olarak kilitsiz başlar).
+export async function clearLock() {
+  await SecureStore.deleteItemAsync(KEY, OPTS).catch(() => {});
+  listeners.forEach((l) => l(false));
+}
+
 // Açarken/kapatırken de doğrulama istenir (telefonu eline alan biri kilidi kapatamasın).
 export async function setLockEnabled(on: boolean): Promise<boolean> {
   const ok = await unlock(on ? 'Uygulama kilidini açmak için doğrula' : 'Uygulama kilidini kapatmak için doğrula');

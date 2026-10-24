@@ -22,6 +22,7 @@ import { Pane, Screen } from './components/Transition';
 import { ensureMyKeys, publishMyKey } from './lib/e2ee';
 import type { MyKeys } from './lib/e2ee';
 import { AYDINLATMA, KOSULLAR, LEGAL_VERSION } from './lib/legal';
+import { clearLock } from './lib/security/appLock';
 import type { LegalDoc } from './lib/legal';
 import { LocationProvider, useGps } from './lib/location';
 import * as Notifications from 'expo-notifications';
@@ -266,6 +267,7 @@ function AppShell() {
   // Çıkışta bu cihaza artık bildirim gitmesin.
   const signOut = useCallback(async () => {
     await unregisterPush().catch(() => {});
+    await clearLock();
     await supabase.auth.signOut();
   }, []);
 
@@ -562,7 +564,7 @@ function AppShell() {
           <AnimatedButton
             title="Çıkış yap"
             variant="ghost"
-            onPress={() => supabase.auth.signOut()}
+            onPress={signOut}
             style={{ marginTop: 10, alignSelf: 'stretch' }}
           />
         </View>
@@ -583,7 +585,7 @@ function AppShell() {
                 // Kayıtta kabul edilen metinlerin hangi sürümü olduğu sunucuda saklanır (KVKK ispat).
                 acceptTerms();
               }}
-              onSignOut={() => supabase.auth.signOut()}
+              onSignOut={signOut}
             />
           </Screen>
         </View>
@@ -596,7 +598,7 @@ function AppShell() {
         <View style={styles.root}>
           <StatusBar style={barStyle} />
           <Screen key="phone" from={1}>
-            <PhoneVerifyScreen required onDone={loadAccount} onSignOut={() => supabase.auth.signOut()} />
+            <PhoneVerifyScreen required onDone={loadAccount} onSignOut={signOut} />
           </Screen>
         </View>
       );
@@ -755,7 +757,7 @@ function AppShell() {
                 'ni okumanı rica ediyoruz.
               </Text>
               <AnimatedButton title="Okudum, kabul ediyorum" onPress={acceptTerms} loading={consentBusy} noEnter style={{ marginTop: 18 }} />
-              <Pressable onPress={() => supabase.auth.signOut()} hitSlop={8} style={{ alignSelf: 'center', marginTop: 14 }}>
+              <Pressable onPress={signOut} hitSlop={8} style={{ alignSelf: 'center', marginTop: 14 }}>
                 <Text style={styles.consentMuted}>Çıkış yap</Text>
               </Pressable>
             </View>
@@ -770,7 +772,7 @@ function AppShell() {
       {revealed ? screen : null}
       {revealed ? <OfflineBanner /> : null}
       {/* Kilit, açılış animasyonu bitip uygulama göründüğü anda devreye girer */}
-      <SecurityLayer active={revealed && Boolean(session && profile?.birth_year)} />
+      <SecurityLayer active={revealed && Boolean(session && profile?.birth_year)} onSignOut={signOut} />
       <LegalSheet doc={legal} onClose={() => setLegal(null)} />
       {intro ? <SplashIntro onReveal={() => setRevealed(true)} onDone={() => setIntro(false)} /> : null}
     </View>
