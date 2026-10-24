@@ -227,6 +227,7 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const [isAdmin, setIsAdmin] = useState(false);
   const [adding, setAdding] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [canDemo, setCanDemo] = useState(__DEV__); // test aşaması / mağaza incelemesi hesabı (014)
   const [sceneVenue, setSceneVenue] = useState<Venue | null>(null); // 3D hali açık olan kafe
   useEffect(() => {
     onImmersive?.(!!sceneVenue);
@@ -251,6 +252,9 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   useEffect(() => {
     gps.start();
     supabase.rpc('am_i_admin').then(({ data }) => setIsAdmin(data === true));
+    supabase.rpc('can_seed_demo').then(({ data, error }) => {
+      if (!error) setCanDemo(data === true);
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // İlk konum gelince ve 150 m'den fazla yer değiştirince kafeleri yeniden getir.
@@ -648,9 +652,9 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
             ) : (
               <AnimatedButton title="Yenile" variant="soft" icon="refresh" onPress={reload} style={{ marginTop: 14 }} />
             )}
-            {__DEV__ ? (
+            {canDemo ? (
               <AnimatedButton
-                title="Yakınıma 10 demo kafe ekle"
+                title="Yakınıma örnek kafeler ekle"
                 icon="cafe"
                 variant="ghost"
                 onPress={seedDemo}

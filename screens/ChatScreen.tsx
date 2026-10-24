@@ -258,6 +258,21 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
     ]);
   }
 
+  // Şikâyet: içerik uçtan uca şifreli olduğu için ekibe sadece sebep ve kişi gider.
+  function report() {
+    Alert.alert('Şikâyet sebebi', 'Bildirimin incelenir; gerekirse hesap kapatılır.', [
+      ...['Taciz ya da tehdit', 'Uygunsuz içerik', 'Sahte profil', 'Dolandırıcılık / para isteği'].map((reason) => ({
+        text: reason,
+        onPress: async () => {
+          const { error } = await supabase.from('reports').insert({ reporter: userId, reported: conn.other_id, reason });
+          setInfo(false);
+          Alert.alert(error ? 'Gönderilemedi' : 'Teşekkürler', error ? friendly(error) : 'Bildirimin bize ulaştı. İstersen bu kişiyi engelleyebilirsin.');
+        },
+      })),
+      { text: 'Vazgeç', style: 'cancel' as const },
+    ]);
+  }
+
   const canSend = Boolean(keys) && theirKey !== null && text.trim().length > 0;
 
   const intro = (
@@ -417,7 +432,7 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
         </Pressable>
       </View>
 
-      <ContactSheet conn={info ? conn : null} safety={safety} onClose={() => setInfo(false)} onBlock={block} />
+      <ContactSheet conn={info ? conn : null} safety={safety} onClose={() => setInfo(false)} onBlock={block} onReport={report} />
     </View>
   );
 }

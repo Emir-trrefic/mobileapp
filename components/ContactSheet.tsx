@@ -15,6 +15,7 @@ type Props = {
   safety: string | null; // iki tarafın açık anahtarlarından güvenlik kodu
   onClose: () => void;
   onBlock: () => void;
+  onReport: () => void;
 };
 
 type LinkRow = { key: string; icon: 'logo-instagram' | 'logo-tiktok' | 'logo-twitter' | 'logo-linkedin'; label: string; value: string; url: string };
@@ -24,7 +25,7 @@ function open(url: string) {
 }
 
 // Sohbetteki kişinin bilgileri: paylaşılan iletişim bilgileri, güvenlik kodu, engelle.
-export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) {
+export default function ContactSheet({ conn, safety, onClose, onBlock, onReport }: Props) {
   const c = useColors();
   const styles = useStyles(makeStyles);
   const insets = useInsets();
@@ -149,6 +150,16 @@ export default function ContactSheet({ conn, safety, onClose, onBlock }: Props) 
           >
             <Ionicons name="hand-left-outline" size={18} color={c.danger} />
             <Text style={styles.blockText}>Engelle</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.block, { marginTop: 0, paddingTop: 4 }]}
+            onPress={() => {
+              tap();
+              onReport();
+            }}
+          >
+            <Ionicons name="flag-outline" size={18} color={c.muted} />
+            <Text style={[styles.blockText, { color: c.muted }]}>Şikâyet et</Text>
           </Pressable>
         </View>
       ) : null}

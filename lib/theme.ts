@@ -9,7 +9,7 @@ export const BRAND_FONT = 'PlayfairDisplay_600SemiBold_Italic';
 export const ACCENT_DOT = '#3D6BFF';
 
 // Ekranlarda gösterilen sürüm (giriş ve profil ekranı buradan okur).
-export const APP_VERSION = '0.21';
+export const APP_VERSION = '1.0.0';
 
 type Grad2 = readonly [string, string];
 type Grad3 = readonly [string, string, string];

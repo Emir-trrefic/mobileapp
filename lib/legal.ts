@@ -8,6 +8,9 @@ export const LEGAL_ENTITY = {
   kep: '[KEP adresi]',
 };
 
+// Destek / şikâyet / KVKK başvuruları için adres (uygulamada "Bize ulaş").
+export const SUPPORT_EMAIL = LEGAL_ENTITY.email.replace(/[\[\]]/g, '');
+
 export const LEGAL_VERSION = { kosullar: '2026-10', aydinlatma: '2026-10' } as const;
 
 export type LegalDoc = {

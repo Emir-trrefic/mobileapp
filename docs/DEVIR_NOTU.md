@@ -36,7 +36,7 @@ Akış:
 
 ## 4. Veritabanı (Supabase SQL Editor'e dosyanın İÇERİĞİ yapıştırılır, dosya adı değil)
 
-Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012 → 013**. Hepsi tekrar çalıştırılabilir.
+Sıra önemli: `schema.sql` → **002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012 → 013 → 014**. Hepsi tekrar çalıştırılabilir.
 
 - 002: profil alanları (yaş, meslek, ilgi alanları), venues.category, admins, venues_nearby, venue_people, my_incoming_requests, avatars storage + politikalar. Not: şu an tüm hesapları yönetici yapıyor (test için).
 - 003: profiles.phone / instagram (format kontrolü), venues sadece 'cafe', respond_meet_request (kabul için kendi telefon veya Instagram şart), venue_people (+ request_direction), my_connections (karşı tarafın iletişimi sadece GÖNDEREN + KABUL EDİLMİŞ istekte döner, engellenenler hariç, 60 gün, 100 kayıt).
@@ -186,4 +186,11 @@ Sürüm 0.21 (isim: rast):
 - `components/Brand.tsx`: `Wordmark` ("rast." yazısı) ve `Mark` (lacivert karede "r."). Giriş ekranı, tanıtım kartları, kilit ekranı ve açılış animasyonu bunları kullanır.
 - Simge, açılış ekranı ve Android simgesi: italik "r" + mavi nokta (assets/).
 - Uygulama kilidi açılış animasyonu bittikten sonra devreye girer.
+
+Sürüm 1.0.0 (yayın hazırlığı, adımlar docs/YAYIN.md):
+- app.json: paket adı com.emirkiraz.rast, sürüm/derleme numarası, Türkçe izin metinleri, iOS gizlilik bildirimi (PrivacyInfo), şifreleme beyanı, gereksiz Android izinleri kapalı, splash expo-splash-screen eklentisine taşındı, expo-system-ui, expo-dev-client. eas.json: development / preview / production.
+- 014: demo modu (app_settings.demo_mode + reviewers tablosu; mağaza incelemecisi örnek kafe ekleyebilsin), admin_reports (moderasyon). Yayın günü: supabase/yayin_oncesi.sql.
+- Sohbette Şikâyet et, Profil > Bize ulaş. "Yakınıma örnek kafeler ekle" düğmesi sunucu izin verirse görünür (yayında sadece inceleme hesabı).
+- web/: gizlilik, koşullar, destek, hesap silme sayfaları (`npm run web`, lib/legal.ts'ten üretilir).
+- Doğrulama: expo-doctor 21/21, expo prebuild ve iOS+Android yayın paketi hatasız; yayın paketinde hızlı giriş yok.
 

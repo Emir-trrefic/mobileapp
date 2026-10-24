@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  Linking,
   Share,
   ActivityIndicator,
   Alert,
@@ -25,6 +26,7 @@ import { tap, warning } from '../lib/haptics';
 import { useInsets, useTabBarSpace } from '../lib/layout';
 import { ageFrom } from '../lib/profile';
 import { forgetMyKeys } from '../lib/e2ee';
+import { SUPPORT_EMAIL } from '../lib/legal';
 import { lockAvailable, lockEnabled, lockMethodName, setLockEnabled } from '../lib/security/appLock';
 import { deviceRisk } from '../lib/security/hardening';
 import { friendly } from '../lib/errors';
@@ -356,7 +358,13 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut, phon
         <Group title="Verilerim" footer="KVKK kapsamındaki haklarını buradan kullanabilirsin. Diğer talepler için Aydınlatma Metni'ndeki adrese yaz.">
           <Row label="Verilerimin kopyasını al" onPress={exportData} />
           <Row label="KVKK Aydınlatma Metni" onPress={() => onLegal('aydinlatma')} />
-          <Row label="Kullanım Koşulları" onPress={() => onLegal('kosullar')} last />
+          <Row label="Kullanım Koşulları" onPress={() => onLegal('kosullar')} />
+          <Row
+            label="Bize ulaş"
+            value={SUPPORT_EMAIL}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=rast%20destek`).catch(() => {})}
+            last
+          />
         </Group>
 
         {__DEV__ ? (
