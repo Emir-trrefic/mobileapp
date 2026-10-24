@@ -21,7 +21,7 @@ eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value 
 eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value sb_publishable_... --visibility plaintext
 eas build --profile production --platform all
 ```
-Aynı iki değişkeni `preview` ve `development` ortamlarına da ekle. Telefonda kendi derlemeni denemek için: `eas build --profile development --platform ios` (Apple hesabı ve cihaz kaydı ister).
+Aynı iki değişkeni `preview` ve `development` ortamlarına da ekle. Telefonda kendi derlemeni geliştirme modunda denemek için önce `npx expo install expo-dev-client`, eas.json'da development profiline `"developmentClient": true` ekle, sonra `eas build --profile development --platform ios` (Apple hesabı ve cihaz kaydı ister). Not: expo-dev-client kuruluyken `npx expo start` Expo Go yerine geliştirme derlemesi için QR verir; Expo Go ile bakmak için `--go` ekle.
 
 ## 4. Supabase (yayın günü)
 1. SQL Editor: `supabase/migrations/014_yayin_hazirligi.sql` (şimdi çalıştırılabilir, test akışını bozmaz).
