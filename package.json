@@ -2,7 +2,7 @@
   "name": "mobileapp",
   "version": "0.1.0",
   "private": true,
-  "main": "index.ts",
+  "main": "index.tsx",
   "scripts": {
     "start": "expo start",
     "tunnel": "expo start --tunnel",
