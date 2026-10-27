@@ -27,7 +27,7 @@ import BellButton from '../components/BellButton';
 import Backdrop from '../components/Backdrop';
 import { FadeIn } from '../components/Transition';
 import { distanceMeters } from '../lib/geo';
-import { friendly } from '../lib/errors';
+import { friendly, isNetworkError } from '../lib/errors';
 import { success, tap, warning } from '../lib/haptics';
 import { useGps } from '../lib/location';
 import { useInsets, useTabBarSpace } from '../lib/layout';
@@ -237,7 +237,8 @@ export default function MapScreen({ active, onCheckedIn, onOpenVenue, onImmersiv
   const fetchVenues = useCallback(async (lat: number, lng: number) => {
     const { data, error } = await supabase.rpc('venues_nearby', { p_lat: lat, p_lng: lng, p_max_m: 2500 });
     if (error) {
-      Alert.alert('Kafeler alınamadı', friendly(error));
+      // İnternet yoksa üstteki şerit zaten gösteriyor; her yenilemede pencere açılıp birikmesin.
+      if (!isNetworkError(error)) Alert.alert('Kafeler alınamadı', friendly(error));
       return;
     }
     anchor.current = { lat, lng };

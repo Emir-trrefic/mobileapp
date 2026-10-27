@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, BackHandler, Easing, LayoutAnimation, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
+import type { ComponentType, Ref } from 'react';
+
+// react-native-webview'in sınıf tipleri React 19 / RN 0.88 tipleriyle uyuşmuyor; davranış aynı, sadece tip uyarlaması.
+const Web = WebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from './AnimatedButton';
 import { CAFE_BG, buildCafeHtml } from '../lib/cafe3dHtml';
@@ -187,14 +191,14 @@ export default function CafeScene({ venue, distance, canCheckIn, here, busy, onC
 
         {/* 3D sahne */}
         <View style={styles.stage}>
-          <WebView
+          <Web
             ref={web}
             key={`${shown.id}:${attempt}`}
             style={styles.web}
             containerStyle={styles.web}
             source={{ html }}
             originWhitelist={['*']}
-            onShouldStartLoadWithRequest={(r) => r.url === 'about:blank' || r.url.startsWith('data:')}
+            onShouldStartLoadWithRequest={(r: { url: string }) => r.url === 'about:blank' || r.url.startsWith('data:')}
             onMessage={onMessage}
             javaScriptEnabled
             scrollEnabled={false}

@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import AnimatedButton from '../components/AnimatedButton';
 import AnimatedInput from '../components/AnimatedInput';
 import Chip from '../components/Chip';
@@ -48,9 +49,9 @@ export default function EditProfileScreen({ profile, onClose, onSaved }: Props) 
   const [photoChanged, setPhotoChanged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const jobRef = useRef<TextInput>(null);
-  const bioRef = useRef<TextInput>(null);
-  const instaRef = useRef<TextInput>(null);
+  const jobRef = useRef<TextInputInstance>(null);
+  const bioRef = useRef<TextInputInstance>(null);
+  const instaRef = useRef<TextInputInstance>(null);
 
   const age = ageFrom(profile.birth_year);
 

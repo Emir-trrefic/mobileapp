@@ -440,7 +440,9 @@ export default function ProfileScreen({ profile, email, onSaved, onSignOut, phon
       </Modal>
 
       {/* Hesap silme onayı */}
-      <Modal visible={deleting} transparent animationType="fade" onRequestClose={() => !busy && setDeleting(false)}>
+      <Modal visible={deleting} transparent animationType="fade" onRequestClose={() => {
+        if (!busy) setDeleting(false);
+      }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.dialogWrap}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => !busy && setDeleting(false)} />
           <View style={styles.dialog}>

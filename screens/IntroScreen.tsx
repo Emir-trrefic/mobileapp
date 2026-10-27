@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps, ReactElement } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import type { FlatListInstance } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
@@ -221,7 +222,7 @@ export default function IntroScreen({ onDone }: { onDone: () => void }) {
   const insets = useInsets();
   const { width } = useWindowDimensions();
   const x = useRef(new Animated.Value(0)).current;
-  const listRef = useRef<Animated.FlatList<Slide> | null>(null);
+  const listRef = useRef<FlatListInstance | null>(null);
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   const last = index === SLIDES.length - 1;

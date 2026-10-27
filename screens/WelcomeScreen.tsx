@@ -1,13 +1,42 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Mark, Wordmark } from '../components/Brand';
+import { Wordmark } from '../components/Brand';
+import WelcomeScene, { LogoOrbit, MeetPulse } from '../components/WelcomeScene';
 import { tap } from '../lib/haptics';
 import AnimatedButton from '../components/AnimatedButton';
 import { useInsets } from '../lib/layout';
 import { APP_VERSION, useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
-// Instagram / X girişi gibi: ortada logo, altta iki net buton. Başka hiçbir şey yok.
+// Giriş: hareketli sahne (süzülen noktalar, logonun etrafında dönen yörüngeler, buluşan iki nokta),
+// ortada marka, değişen kısa cümleler; altta iki net düğme.
+
+const LINES = ['Aynı kafedeki insanlarla tanış.', 'Yan masaya bir selam gönder.', 'Konuşmalar şifreli, kontrol sende.'];
+
+// Cümleler birkaç saniyede bir yukarı kayarak değişir.
+function RotatingLine({ style }: { style: object }) {
+  const [i, setI] = useState(0);
+  const v = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const t = setInterval(() => {
+      Animated.timing(v, { toValue: 0, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => {
+        setI((n) => (n + 1) % LINES.length);
+        Animated.timing(v, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      });
+    }, 3200);
+    return () => clearInterval(t);
+  }, [v]);
+  return (
+    <Animated.Text
+      style={[
+        style,
+        { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) }] },
+      ]}
+    >
+      {LINES[i]}
+    </Animated.Text>
+  );
+}
 
 function useIn(delay: number, dist = 16) {
   const v = useRef(new Animated.Value(0)).current;
@@ -43,6 +72,7 @@ export default function WelcomeScreen({ onStart, onLogin, onLegal, onQuick, quic
 
   return (
     <View style={styles.root}>
+      <WelcomeScene />
       <View style={styles.center}>
         <Animated.View
           style={{
@@ -51,10 +81,15 @@ export default function WelcomeScreen({ onStart, onLogin, onLegal, onQuick, quic
             transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
           }}
         >
-          <Mark size={96} />
-          <Wordmark size={46} color={c.text} style={{ marginTop: 20 }} />
+          <LogoOrbit size={92} />
+          <Wordmark size={52} color={c.text} style={{ marginTop: -10 }} />
         </Animated.View>
-        <Animated.Text style={[styles.tagline, tag]}>Aynı kafedeki insanlarla tanış.</Animated.Text>
+        <Animated.View style={[{ alignItems: 'center' }, tag]}>
+          <RotatingLine style={styles.tagline} />
+          <View style={{ marginTop: 18 }}>
+            <MeetPulse />
+          </View>
+        </Animated.View>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
@@ -99,7 +134,7 @@ const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 40 },
-    tagline: { color: c.muted, fontSize: 16, marginTop: 10 },
+    tagline: { color: c.muted, fontSize: 16, marginTop: 10, height: 22 },
     bottom: { paddingHorizontal: 28 },
     quick: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
     quickText: { color: c.accentLight, fontSize: 15, fontWeight: '700' },

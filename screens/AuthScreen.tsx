@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedButton from '../components/AnimatedButton';
 import { FadeIn } from '../components/Transition';
@@ -57,8 +58,8 @@ export default function AuthScreen({ initialMode, onBack, onLegal }: Props) {
   const [resendIn, setResendIn] = useState(0);
   const [lockedFor, setLockedFor] = useState(0);
   const fails = useRef(0);
-  const passwordRef = useRef<TextInput>(null);
-  const password2Ref = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
+  const password2Ref = useRef<TextInputInstance>(null);
 
   // Geri sayımlar (kod tekrar gönderme, hatalı giriş bekleme).
   useEffect(() => {

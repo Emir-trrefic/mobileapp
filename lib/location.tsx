@@ -170,7 +170,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       timeoutMs,
       'Konum alınamadı. Açık bir alanda tekrar dene.',
     );
-    if ((loc as { mocked?: boolean }).mocked) {
+    // Simülatör konumu iOS'ta "sahte" işaretlenir; geliştirme sürümünde test edilebilsin diye kontrol atlanır.
+    if (!__DEV__ && (loc as { mocked?: boolean }).mocked) {
       throw new Error('Sahte konum algılandı. Gerçek konumunla tekrar dene.');
     }
     const f = toFix(loc);

@@ -316,7 +316,7 @@ export default function VenueScreen({ active, userId, myInterests, incoming, key
                 Biri bu kafede check-in yaptığında burada görünecek. Yenilemek için aşağı çek.
               </Text>
             </FadeIn>
-          ) : null
+          ) : undefined
         }
         renderItem={({ item, index }) => (
           <PersonCard

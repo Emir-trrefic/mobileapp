@@ -350,7 +350,7 @@ export default function ChatScreen({ conn, userId, keys, onClose, onRead, onBloc
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.list}
-        ListFooterComponent={loaded ? intro : null}
+        ListFooterComponent={loaded ? intro : undefined}
         renderItem={({ item, index }) => {
           const older = items[index + 1];
           const newer = items[index - 1];

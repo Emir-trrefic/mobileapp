@@ -11,6 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AnimatedButton from '../components/AnimatedButton';
@@ -54,7 +56,7 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const styles = useStyles(makeStyles);
   const insets = useInsets();
   const keyboard = useKeyboardHeight();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1); // 1 ileri, -1 geri
   const [name, setName] = useState(initial?.display_name ?? '');
@@ -72,13 +74,13 @@ export default function OnboardingScreen({ userId, initial, onDone, onSignOut }:
   const [xHandle, setXHandle] = useState(initial?.x_handle ? `@${initial.x_handle}` : '');
   const [linkedin, setLinkedin] = useState(initial?.linkedin ?? '');
   const [showLinks, setShowLinks] = useState(Boolean(initial?.tiktok || initial?.x_handle || initial?.linkedin));
-  const lastNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInputInstance>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const yearRef = useRef<TextInput>(null);
-  const bioRef = useRef<TextInput>(null);
-  const instaRef = useRef<TextInput>(null);
+  const yearRef = useRef<TextInputInstance>(null);
+  const bioRef = useRef<TextInputInstance>(null);
+  const instaRef = useRef<TextInputInstance>(null);
   const progress = useRef(new Animated.Value(1 / STEPS)).current;
   const slide = useRef(new Animated.Value(1)).current;
 

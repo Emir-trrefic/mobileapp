@@ -27,6 +27,9 @@ const RULES: Rule[] = [
 
 export function friendly(error: unknown, fallback = 'Bir şeyler ters gitti. Tekrar dener misin?'): string {
   const msg = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String((error as { message: unknown }).message) : String(error ?? '');
+  // Uygulamanın kendi Türkçe mesajları (konum, GPS vb.) zaten kullanıcıya göre yazılmış: olduğu gibi gösterilir.
+  // (Sunucu mesajları ASCII; Türkçe harf içeren mesaj bizim yazdığımız bir mesajdır.)
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(msg) && !RULES[0][0].test(msg)) return msg;
   for (const [re, out] of RULES) {
     const m = msg.match(re);
     if (m) return typeof out === 'string' ? out : out(m);

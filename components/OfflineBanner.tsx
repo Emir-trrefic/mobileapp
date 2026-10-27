@@ -6,6 +6,18 @@ import { useInsets } from '../lib/layout';
 
 // Uygulama internet olmadan çalışmaz: bağlantı kopunca üstten ince bir şerit iner, gelince kaybolur.
 // (Ağ durumu ilk kez okunurken yanlış alarm vermemek için "bilinmiyor" çevrimiçi sayılır.)
+// Erişim testi Supabase'e yapılır (bazı kurum ağları Google'ın test adresini engeller ve yanlışlıkla
+// "internet yok" gösterilirdi). Sunucu yanıt verdiği sürece (401 dahil) çevrimiçi sayılır.
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+if (SUPABASE_URL) {
+  NetInfo.configure({
+    reachabilityUrl: `${SUPABASE_URL}/auth/v1/health`,
+    reachabilityTest: async (r) => r.status < 500,
+    reachabilityShortTimeout: 5000,
+    reachabilityLongTimeout: 60000,
+  });
+}
+
 export function useOnline(): boolean {
   const [online, setOnline] = useState(true);
   useEffect(

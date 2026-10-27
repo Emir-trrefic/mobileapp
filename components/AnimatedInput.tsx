@@ -1,12 +1,13 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, TextInput, TextInputProps } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { useColors, useStyles } from '../lib/theme';
 import type { Palette } from '../lib/theme';
 
 type Props = TextInputProps & { label: string; tall?: boolean };
 
 // Yazmaya başlayınca etiket yukarı kayar, çerçeve parlar.
-const AnimatedInput = forwardRef<TextInput, Props>(function AnimatedInput(
+const AnimatedInput = forwardRef<TextInputInstance, Props>(function AnimatedInput(
   { label, value, tall, onFocus, onBlur, style, ...rest },
   ref,
 ) {
