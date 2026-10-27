@@ -1,6 +1,22 @@
 import { Platform } from 'react-native';
-import JailMonkey from 'jail-monkey';
-import { addSslPinningErrorListener, initializeSslPinning, isSslPinningAvailable } from 'react-native-ssl-public-key-pinning';
+
+// Yerel modüller Expo Go'da yok; paketler içe aktarılırken hata verebildiği için yalnızca ihtiyaç anında,
+// try/catch içinde yüklenir. Böylece Expo Go'da uygulama çökmez, bu özellikler sessizce kapalı kalır.
+/* eslint-disable @typescript-eslint/no-require-imports */
+function loadJailMonkey(): any {
+  try {
+    return require('jail-monkey').default ?? require('jail-monkey');
+  } catch {
+    return null;
+  }
+}
+function loadPinning(): any {
+  try {
+    return require('react-native-ssl-public-key-pinning');
+  } catch {
+    return null;
+  }
+}
 
 // Ağ ve cihaz sertleştirme. İkisi de yerel kod ister: Expo Go'da sessizce devre dışı kalır, uygulamanın
 // kendi derlemesinde (EAS development / production build) çalışır.
@@ -25,8 +41,10 @@ export const pinningState = () => pinning;
 // Uygulama açılırken bir kez çağrılır. Sabitleme açıkken Supabase'e giden her HTTPS isteğinde sunucunun
 // sertifika zinciri bu anahtarlardan biriyle eşleşmezse istek reddedilir (araya giren saldırgan engellenir).
 export async function initPinning(supabaseUrl: string) {
-  if (!isSslPinningAvailable()) return;
   try {
+    const mod = loadPinning();
+    if (!mod || !mod.isSslPinningAvailable()) return;
+    const { initializeSslPinning, addSslPinningErrorListener } = mod;
     const host = new URL(supabaseUrl).host;
     await initializeSslPinning({
       [host]: { includeSubdomains: false, publicKeyHashes: SUPABASE_PINS },
@@ -48,6 +66,8 @@ export type DeviceRisk = { available: boolean; rooted: boolean; hooked: boolean;
 // kilitlemek yerine kullanıcıyı uyarır; sahte konum tespiti check-in güvenliğine ek sinyaldir.
 export function deviceRisk(): DeviceRisk {
   try {
+    const JailMonkey = loadJailMonkey();
+    if (!JailMonkey) throw new Error('yok');
     return {
       available: true,
       rooted: Boolean(JailMonkey.isJailBroken()),
